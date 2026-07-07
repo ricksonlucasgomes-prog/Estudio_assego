@@ -221,6 +221,7 @@ export function App() {
   const [mediaBusy, setMediaBusy] = useState(false);
   const [savedNote, setSavedNote] = useState('Conferencia salva automaticamente');
   const [cameraClock, setCameraClock] = useState(Date.now());
+  const [cameraOn, setCameraOn] = useState(false);
   const [accessRequestBusy, setAccessRequestBusy] = useState(false);
   const [accessRequestInfo, setAccessRequestInfo] = useState('');
 
@@ -780,8 +781,8 @@ export function App() {
       <main className="login-screen">
         <form className="login-card" onSubmit={handleEmailAuth}>
           <div className="logo-chip"><img src="/logo.png" alt="ASSEGO PM & BM" /></div>
-          <p className="eyebrow">ASSEGO PM & BM</p>
-          <h1>Controle do Estudio</h1>
+          <p className="eyebrow">ASSEGO PM &amp; BM</p>
+          <h1>Estúdio: agenda e equipamentos</h1>
 
           <div className="auth-tabs">
             <button type="button" className={authMode === 'login' ? 'active' : ''} onClick={() => switchAuthMode('login')}>Entrar</button>
@@ -837,8 +838,8 @@ export function App() {
       <header className="topbar">
         <div className="logo-chip"><img src="/logo.png" alt="ASSEGO PM & BM" /></div>
         <div>
-          <p className="eyebrow">ASSEGO PM & BM Estudio</p>
-          <h1>Controle do Estudio</h1>
+          <p className="eyebrow">ASSEGO PM &amp; BM · Estúdio</p>
+          <h1>Agenda e equipamentos</h1>
         </div>
         <div className="session">
           <div className="avatar">
@@ -869,39 +870,49 @@ export function App() {
         <article className="card">
           <div className="card-head">
             <h2>Camera ao vivo</h2>
-            <span className="live-badge camera-rec">REC</span>
+            {cameraOn && <span className="live-badge camera-rec">REC</span>}
           </div>
           <div className="video-box camera-frame">
-            <iframe
-              title="Camera ao vivo"
-              src={`https://www.youtube.com/embed/${STREAM_ID}?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0&playsinline=1`}
-              allow="autoplay; encrypted-media; picture-in-picture"
-              allowFullScreen
-            />
-            <div className="camera-overlay" aria-hidden="true">
-              <div className="camera-hud top">
-                <span><strong>REC</strong> CAM 01</span>
-                <span>{formatDateTime(cameraClock)}</span>
-              </div>
-              <div className="camera-hud bottom">
-                <span>ASSEGO ESTUDIO</span>
-                <span>1080P · AUTO</span>
-              </div>
-              <span className="frame-corner tl" />
-              <span className="frame-corner tr" />
-              <span className="frame-corner bl" />
-              <span className="frame-corner br" />
-              <span className="focus-mark" />
-            </div>
+            {cameraOn ? (
+              <>
+                <iframe
+                  title="Camera ao vivo"
+                  src={`https://www.youtube.com/embed/${STREAM_ID}?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0&playsinline=1`}
+                  allow="autoplay; encrypted-media; picture-in-picture"
+                  allowFullScreen
+                />
+                <div className="camera-overlay" aria-hidden="true">
+                  <div className="camera-hud top">
+                    <span><strong>REC</strong> CAM 01</span>
+                    <span>{formatDateTime(cameraClock)}</span>
+                  </div>
+                  <div className="camera-hud bottom">
+                    <span>ASSEGO ESTUDIO</span>
+                    <span>1080P · AUTO</span>
+                  </div>
+                  <span className="frame-corner tl" />
+                  <span className="frame-corner tr" />
+                  <span className="frame-corner bl" />
+                  <span className="frame-corner br" />
+                  <span className="focus-mark" />
+                </div>
+              </>
+            ) : (
+              <button type="button" className="camera-start" onClick={() => setCameraOn(true)}>
+                <span className="camera-start-icon">▶</span>
+                <span className="camera-start-text">Estúdio Ao Vivo</span>
+                <span className="camera-start-sub">Toque para iniciar a transmissão</span>
+              </button>
+            )}
           </div>
         </article>
 
         <article className="card">
           <div className="card-head">
-            <h2>Conferencia de equipamentos</h2>
+            <h2>Conferência de equipamentos</h2>
             <div className="head-actions">
               <button className="btn ghost" type="button" onClick={resetChecklist} disabled={!canManage}>Zerar</button>
-              <button className="btn" type="button" onClick={saveConference} disabled={!canManage}>Salvar conferencia</button>
+              <button className="btn" type="button" onClick={saveConference} disabled={!canManage}>Salvar conferência</button>
             </div>
           </div>
           <div className="ready">
@@ -1023,7 +1034,7 @@ export function App() {
 
       <section className="card media-card">
         <div className="card-head">
-          <h2>Fotos dos equipamentos</h2>
+          <h2>Cautela</h2>
           <a className="btn ghost" href={driveFolder} target="_blank" rel="noreferrer">Abrir Drive</a>
         </div>
         <div className="drive-panel">

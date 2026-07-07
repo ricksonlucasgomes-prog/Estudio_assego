@@ -1,7 +1,7 @@
 {
-  "name": "Controle do Estudio ASSEGO",
-  "short_name": "Estudio ASSEGO",
-  "description": "Controle de equipamentos do estudio de podcast da ASSEGO PM & BM.",
+  "name": "Estúdio: agenda e equipamentos",
+  "short_name": "Estúdio ASSEGO",
+  "description": "Agenda e controle de equipamentos do estúdio de podcast da ASSEGO PM & BM.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
