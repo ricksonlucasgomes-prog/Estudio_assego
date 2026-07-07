@@ -766,6 +766,41 @@ export function App() {
     </div>
   ) : null;
 
+  const liveModal = cameraOn ? (
+    <div className="live-modal" role="dialog" aria-modal="true" onClick={() => setCameraOn(false)}>
+      <div className="live-modal-card" onClick={(event) => event.stopPropagation()}>
+        <div className="live-modal-head">
+          <span className="live-badge camera-rec">REC</span>
+          <span className="live-modal-title">Câmera ao vivo</span>
+          <button className="live-modal-close" type="button" onClick={() => setCameraOn(false)} aria-label="Fechar transmissão">✕</button>
+        </div>
+        <div className="video-box camera-frame">
+          <iframe
+            title="Câmera ao vivo"
+            src={`https://www.youtube.com/embed/${STREAM_ID}?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0&playsinline=1`}
+            allow="autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
+          />
+          <div className="camera-overlay" aria-hidden="true">
+            <div className="camera-hud top">
+              <span><strong>REC</strong> CAM 01</span>
+              <span>{formatDateTime(cameraClock)}</span>
+            </div>
+            <div className="camera-hud bottom">
+              <span>ASSEGO ESTÚDIO</span>
+              <span>1080P · AUTO</span>
+            </div>
+            <span className="frame-corner tl" />
+            <span className="frame-corner tr" />
+            <span className="frame-corner bl" />
+            <span className="frame-corner br" />
+            <span className="focus-mark" />
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   if (!authReady) {
     return (
       <main className="login-screen">
@@ -870,40 +905,13 @@ export function App() {
         <article className="card">
           <div className="card-head">
             <h2>Câmera ao vivo</h2>
-            {cameraOn && <span className="live-badge camera-rec">REC</span>}
           </div>
           <div className="video-box camera-frame">
-            {cameraOn ? (
-              <>
-                <iframe
-                  title="Câmera ao vivo"
-                  src={`https://www.youtube.com/embed/${STREAM_ID}?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0&playsinline=1`}
-                  allow="autoplay; encrypted-media; picture-in-picture"
-                  allowFullScreen
-                />
-                <div className="camera-overlay" aria-hidden="true">
-                  <div className="camera-hud top">
-                    <span><strong>REC</strong> CAM 01</span>
-                    <span>{formatDateTime(cameraClock)}</span>
-                  </div>
-                  <div className="camera-hud bottom">
-                    <span>ASSEGO ESTÚDIO</span>
-                    <span>1080P · AUTO</span>
-                  </div>
-                  <span className="frame-corner tl" />
-                  <span className="frame-corner tr" />
-                  <span className="frame-corner bl" />
-                  <span className="frame-corner br" />
-                  <span className="focus-mark" />
-                </div>
-              </>
-            ) : (
-              <button type="button" className="camera-start" onClick={() => setCameraOn(true)}>
-                <span className="camera-start-icon">▶</span>
-                <span className="camera-start-text">Estúdio Ao Vivo</span>
-                <span className="camera-start-sub">Toque para iniciar a transmissão</span>
-              </button>
-            )}
+            <button type="button" className="camera-start" onClick={() => setCameraOn(true)}>
+              <span className="camera-start-icon">▶</span>
+              <span className="camera-start-text">Estúdio em tempo real</span>
+              <span className="camera-start-sub">Toque para abrir a transmissão ao vivo</span>
+            </button>
           </div>
         </article>
 
@@ -1091,6 +1099,7 @@ export function App() {
       </footer>
       {installFab}
       {iosModal}
+      {liveModal}
     </main>
   );
 }
