@@ -2348,6 +2348,37 @@ export function App() {
       {/* ============================== */}
       {/* MENUS E MODAIS NATIVOS         */}
       {/* ============================== */}
+      {/* Navegação em coluna à esquerda, só visível em telas desktop
+          (ver @media min-width em styles.css). No mobile, .bottom-tabs
+          continua sendo a navegação real. */}
+      <nav className="side-nav" aria-label="Navegação principal do app (desktop)">
+        <div className="side-nav__brand">
+          <div className="logo-chip"><img src="/logo.png" alt="ASSEGO PM & BM" /></div>
+          <div className="side-nav__brand-copy">
+            <p className="eyebrow">ASSEGO PM &amp; BM</p>
+            <strong>Assego Studio</strong>
+          </div>
+        </div>
+        <div className="side-nav__tabs">
+          {visibleTabs.map((tab) => {
+            const Icon = tab.icon;
+            const selected = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                className={selected ? 'active' : ''}
+                aria-current={selected ? 'page' : undefined}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <Icon aria-hidden="true" size={20} strokeWidth={2.2} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
       <nav className="bottom-tabs" aria-label="Navegação principal do app">
         {visibleTabs.map((tab) => {
           const Icon = tab.icon;

@@ -1299,6 +1299,125 @@ footer {
   white-space: nowrap;
 }
 
+/* Navegação lateral (desktop). Escondida por padrão; vira a navegação
+   real acima de --side-nav-breakpoint, onde .bottom-tabs some e .wrap
+   ganha uma margem para não ficar embaixo da coluna fixa. */
+.side-nav {
+  display: none;
+}
+
+@media (min-width: 1180px) {
+  :root {
+    --side-nav-width: 244px;
+  }
+
+  .side-nav {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 40;
+    width: var(--side-nav-width);
+    padding: 22px 14px 20px;
+    gap: 22px;
+    background:
+      linear-gradient(180deg, rgba(var(--white-rgb), .06), rgba(var(--white-rgb), .01)),
+      rgba(5, 10, 24, .96);
+    border-right: 1px solid rgba(var(--white-rgb), .1);
+    overflow-y: auto;
+  }
+
+  .side-nav__brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 6px;
+  }
+
+  .side-nav__brand .logo-chip {
+    width: 42px;
+    height: 42px;
+  }
+
+  .side-nav__brand-copy {
+    min-width: 0;
+  }
+
+  .side-nav__brand-copy .eyebrow {
+    font-size: 10px;
+  }
+
+  .side-nav__brand-copy strong {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .side-nav__tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .side-nav__tabs button {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 46px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 14px;
+    text-align: left;
+    transition: color .18s ease, background .18s ease, transform .18s ease;
+  }
+
+  .side-nav__tabs button:hover {
+    color: var(--text);
+    background: rgba(var(--white-rgb), .06);
+  }
+
+  .side-nav__tabs button.active {
+    color: #081324;
+    background: linear-gradient(135deg, var(--accent-bright), #ffd45c);
+    box-shadow:
+      0 10px 24px rgba(var(--accent-bright-rgb), .24),
+      inset 0 1px 0 rgba(var(--white-rgb), .45);
+  }
+
+  .side-nav__tabs button svg {
+    flex: 0 0 auto;
+  }
+
+  .side-nav__tabs span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .bottom-tabs {
+    display: none;
+  }
+
+  .wrap {
+    margin: 0 0 0 var(--side-nav-width);
+    width: min(1240px, calc(100% - var(--side-nav-width) - 32px));
+    padding-left: 16px;
+  }
+}
+
 @media (max-width: 520px) {
   .bottom-tabs {
     width: min(420px, calc(100% - 18px));
