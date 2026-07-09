@@ -951,61 +951,94 @@ footer {
   left: 50%;
   bottom: calc(14px + env(safe-area-inset-bottom));
   z-index: 45;
-  width: min(720px, calc(100% - 28px));
+  width: min(680px, calc(100% - 24px));
   transform: translateX(-50%);
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-  gap: 8px;
-  padding: 8px;
-  border: 1px solid rgba(var(--white-rgb), .14);
-  border-radius: 24px;
-  background: rgba(5, 10, 24, .8);
-  box-shadow: 0 12px 36px rgba(var(--black-rgb), .32);
-  backdrop-filter: blur(14px);
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid rgba(var(--white-rgb), .12);
+  border-radius: var(--radius-pill);
+  background:
+    linear-gradient(180deg, rgba(var(--white-rgb), .08), rgba(var(--white-rgb), .02)),
+    rgba(5, 10, 24, .88);
+  box-shadow:
+    0 18px 46px rgba(var(--black-rgb), .42),
+    inset 0 1px 0 rgba(var(--white-rgb), .08);
+  backdrop-filter: blur(18px);
 }
 
 .bottom-tabs button {
   position: relative;
   min-width: 0;
-  min-height: 58px;
-  display: grid;
-  place-items: center;
-  gap: 4px;
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 10px;
   border: 0;
-  border-radius: 18px;
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--muted);
   cursor: pointer;
   font-weight: 800;
   letter-spacing: .01em;
-  transition: color .18s ease;
+  transition:
+    color .18s ease,
+    background .18s ease,
+    transform .18s ease,
+    box-shadow .18s ease;
 }
 
 .bottom-tabs button:hover {
   color: var(--text);
   background: rgba(var(--white-rgb), .06);
+  transform: translateY(-1px);
 }
 
 .bottom-tabs button.active {
-  color: var(--accent-bright);
+  color: #081324;
+  background: linear-gradient(135deg, var(--accent-bright), #ffd45c);
+  box-shadow:
+    0 10px 24px rgba(var(--accent-bright-rgb), .28),
+    inset 0 1px 0 rgba(var(--white-rgb), .45);
 }
 
 .bottom-tabs button.active::before {
-  content: '';
-  position: absolute;
-  top: 6px;
-  width: 20px;
-  height: 3px;
-  border-radius: var(--radius-pill);
-  background: var(--accent-bright);
+  content: none;
+}
+
+.bottom-tabs button svg {
+  flex: 0 0 auto;
 }
 
 .bottom-tabs span {
   max-width: 100%;
   overflow: hidden;
   font-size: 12px;
+  line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .bottom-tabs {
+    width: min(420px, calc(100% - 18px));
+    gap: 4px;
+    padding: 5px;
+  }
+
+  .bottom-tabs button {
+    min-height: 48px;
+    flex-direction: column;
+    gap: 3px;
+    padding: 5px 4px;
+  }
+
+  .bottom-tabs span {
+    font-size: 11px;
+  }
 }
 
 @media (max-width: 980px) {
