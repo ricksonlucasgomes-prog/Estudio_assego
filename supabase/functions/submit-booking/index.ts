@@ -208,6 +208,54 @@ serve(async (req) => {
       console.warn("Aviso: N8N_WEBHOOK_URL não configurada nas variáveis de ambiente.")
     }
 
+    // 8b. Notificação por Telegram — direto, sem depender do n8n.
+    // Também best-effort (fire-and-forget + timeout). Envia para cada
+    // chat_id em TELEGRAM_CHAT_IDS (separados por vírgula): presidência, Lucas
+    // ou um grupo da diretoria.
+    const tgToken = Deno.env.get('TELEGRAM_BOT_TOKEN')
+    const tgChatIds = (Deno.env.get('TELEGRAM_CHAT_IDS') ?? '')
+      .split(',').map((s) => s.trim()).filter(Boolean)
+    if (tgToken && tgChatIds.length > 0) {
+      const guests = (guestsData as Array<Record<string, unknown>>)
+      const guestLines = guests.length
+        ? guests.map((g) => `• ${g.full_name}${g.whatsapp ? ` (${g.whatsapp})` : ''}`).join('\n')
+        : '• (sem convidados)'
+      const text = [
+        '🎙️ Nova solicitação — Estúdio ASSEGO',
+        `Solicitante: ${requestData.requester_name}`,
+        `Contato: ${requestData.requester_whatsapp ?? '-'} · ${requestData.requester_email ?? '-'}`,
+        `Data: ${requestData.requested_date ?? '-'} às ${requestData.requested_time ?? '-'}`,
+        `Participantes (${guests.length}):`,
+        guestLines,
+        `Assinado por: ${signedPayload.signer_name}`,
+      ].join('\n')
+
+      const notifyTg = (async () => {
+        const ctrl = new AbortController()
+        const timer = setTimeout(() => ctrl.abort(), 5000)
+        try {
+          await Promise.all(tgChatIds.map((chatId) =>
+            fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
+              signal: ctrl.signal,
+            })
+          ))
+        } catch (err) {
+          console.error('Erro ao notificar Telegram:', err)
+        } finally {
+          clearTimeout(timer)
+        }
+      })()
+
+      // @ts-ignore EdgeRuntime existe no runtime do Supabase.
+      if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
+        // @ts-ignore
+        EdgeRuntime.waitUntil(notifyTg)
+      }
+    }
+
     // 9. Retorno de Sucesso para o Frontend
     return new Response(
       JSON.stringify({ success: true, booking_id: requestData.id, signature_hash: payloadHash }),

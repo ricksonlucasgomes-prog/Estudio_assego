@@ -90,7 +90,9 @@ A Edge Function `submit-booking`:
 3. grava a assinatura em `legal_signatures` (imutável) com **hash SHA-256** do
    payload canônico + **IP** (`x-forwarded-for`) + user-agent (não-repúdio);
 4. **compensação**: se a assinatura falhar, desfaz a reserva (delete);
-5. dispara webhook opcional para o n8n se `N8N_WEBHOOK_URL` estiver setado.
+5. dispara notificações opcionais em modo best-effort, sem travar o app:
+   Telegram direto se `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_IDS` estiverem
+   setados; n8n se `N8N_WEBHOOK_URL` estiver setado.
 
 Colunas de `studio_booking_requests`/`participants` espelham **exatamente** o
 insert da função — não renomear sem ajustar `submit-booking/index.ts`.
@@ -110,16 +112,17 @@ Variáveis de ambiente (`.env`, ver `.env.example`): `VITE_SUPABASE_URL`,
 
 Feito e commitado (local, sem push): backend + front do agendamento com
 assinatura digital; redesign ASSEGO; aba Conferência restrita a `canManage`;
-URL da Edge Function via `edgeFunctionUrl` (sem hard-code).
+URL da Edge Function via `edgeFunctionUrl` (sem hard-code); admin consegue
+listar/aprovar/rejeitar solicitações; SQLs de agendamento já foram aplicados
+no Supabase; `submit-booking` já foi publicada.
 
-**Pendente (precisa do acesso Supabase do Lucas):**
-1. Rodar SQLs no SQL Editor **nesta ordem**: `schema.sql` → `studio_booking.sql`
-   → `legal_signatures.sql`.
-2. `supabase functions deploy submit-booking`.
-3. (Opcional) `supabase secrets set N8N_WEBHOOK_URL="..."` para notificar.
-4. Testar o fluxo "Assinar e enviar solicitação" ponta a ponta.
-5. **Falta UI de admin** para listar/aprovar/rejeitar `studio_booking_requests`
-   (hoje nada consome as solicitações depois de criadas).
+**Pendente:**
+1. Configurar Telegram: `supabase secrets set TELEGRAM_BOT_TOKEN="..."
+   TELEGRAM_CHAT_IDS="chat1,chat2"` e publicar `submit-booking`.
+2. Testar o fluxo "Assinar e enviar solicitação" ponta a ponta com usuário
+   logado, conferindo cadastro no banco + alerta no Telegram.
+3. (Opcional) `supabase secrets set N8N_WEBHOOK_URL="..."` para automações
+   futuras no n8n/WhatsApp.
 
 ## 10. Regras de ouro / cuidados
 
