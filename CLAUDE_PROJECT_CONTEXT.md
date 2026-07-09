@@ -332,13 +332,13 @@ supabase/
       index.ts
 ```
 
-Atencao:
-Nao ha `.git` dentro de `C:\Assego\Sistema_Estúdio\app` no estado extraido. `git status` nao funciona ali. O projeto veio de ZIP. Se for continuar em Claude, confirme se Lucas quer inicializar git, conectar ao repo remoto ou trabalhar nesta pasta.
+Atencao (atualizado):
+`C:\Assego\Sistema_Estúdio\app` JA E um repositorio git valido (`.git` presente, `git status` funciona) e esta conectado ao remote `origin`. A observacao anterior sobre "veio de ZIP, sem git" nao vale mais.
 
-Repositorio GitHub informado no AGENTS:
+Repositorio GitHub (remote `origin` real):
 
 ```text
-ricksonlucasgomes-prog/controle_estudio_assego_privado
+https://github.com/ricksonlucasgomes-prog/Estudio_assego.git
 ```
 
 Branch de producao:
@@ -389,9 +389,10 @@ Exporta funcoes:
 - `addMedia(record, userId)`
 - `deleteMedia(id)`
 
-Comportamento:
-- Se nao houver Supabase, usa/fica com localStorage.
-- Se Supabase falhar, `loadStudio()` volta para localStorage.
+Comportamento (atualizado):
+- Supabase e a fonte primaria de dados e de autenticacao (Supabase Auth real: email/senha + Google OAuth).
+- `localStorage` e apenas fallback: usado quando o Supabase nao esta configurado.
+- Se Supabase falhar, `loadStudio()` volta para localStorage (degradacao suave).
 - Escritas no Supabase lancam erro para o `App.tsx` tratar.
 
 Tabelas usadas:
@@ -673,6 +674,15 @@ Fluxo esperado apos schema:
 - Retirada/devolucao sincronizam.
 - Fotos ficam salvas como base64 em tabela por enquanto, nao ideal para longo prazo.
 
+Regra de conferencia com pendencias:
+
+- Se houver qualquer equipamento pendente/faltando no checklist, o botao "Salvar conferencia" deve ficar desabilitado ate existir uma observacao preenchida.
+- Ao salvar uma conferencia com pendencias, a observacao preenchida deve ser salva junto:
+  - como `notes` da conferencia;
+  - tambem no historico de observacoes.
+- Isso evita conferencia com falta de equipamento sem justificativa registrada.
+- Se nao houver pendencias, a conferencia pode ser salva sem observacao.
+
 Observacao tecnica:
 Atualmente `studio_media.photo` e `studio_checkouts.photo` guardam data URL/base64. Funciona, mas pode pesar o banco. Melhor futuro:
 - Supabase Storage ou Google Drive para arquivo.
@@ -837,12 +847,29 @@ supabase secrets set GOOGLE_CLIENT_ID="..." GOOGLE_CLIENT_SECRET="..." GOOGLE_RE
 13. UI / DESIGN ATUAL
 -------------------------------------------------------------------------------
 
-Tema:
-- Azul escuro "control room".
-- Cards com borda azul.
-- Destaques em azul e vermelho.
+Tema atual e direcao de redesign:
+
 - UI em portugues.
 - Logo ASSEGO oficial no login/topbar.
+- Referencia principal: site oficial da ASSEGO, https://www.assego.com.br/.
+- Referencia complementar de linguagem audiovisual/social: Reels oficiais da ASSEGO, https://www.instagram.com/assego/reels/.
+- O site oficial usa uma estetica institucional premium:
+  - fundo escuro quase preto;
+  - azul ASSEGO forte;
+  - amarelo ASSEGO para chamadas e botoes principais;
+  - tipografia forte em Montserrat;
+  - textos curtos e impactantes;
+  - secoes com metricas, cards e imagem forte.
+- O app deve continuar sendo uma ferramenta operacional, nao uma landing page, mas deve herdar essa identidade visual.
+- Evitar visual de dashboard generico. Usar linguagem de painel oficial interno da ASSEGO.
+- O Instagram deve orientar:
+  - chamadas curtas;
+  - ritmo visual;
+  - uso de amarelo para destaque;
+  - tom institucional/comunitario;
+  - capas/thumbnails se Lucas enviar prints.
+
+Observacao: Instagram costuma bloquear leitura automatizada sem login. Se for necessario copiar detalhes exatos dos Reels, pedir screenshots ao Lucas ou abrir manualmente no navegador dele.
 
 Arquivo de estilo:
 
@@ -959,7 +986,140 @@ Provavel recomendacao: Resend, por ser simples para Edge Function.
 12. Fazer deploy/push para Vercel/GitHub.
 
 -------------------------------------------------------------------------------
-17. CHECKLIST DE VERIFICACAO ANTES DE DIZER "PRONTO"
+17. REQUISITO NOVO: REGRAS DO ESTUDIO, PARTICIPANTES E WHATSAPP
+-------------------------------------------------------------------------------
+
+Lucas adicionou um requisito obrigatorio para a proxima etapa de agenda do estudio.
+
+Durante qualquer fluxo de agendamento/reserva do estudio, o app deve:
+
+1. Mostrar um popup/modal com TODAS as regras do estudio.
+2. Exigir aceite explicito das regras antes de continuar.
+3. Exibir um formulario para preencher os dados de TODOS os participantes do podcast.
+4. Enviar imediatamente os dados de todos os participantes para:
+   - WhatsApp da presidencia da ASSEGO.
+   - WhatsApp do Lucas.
+5. Isso vale tanto para:
+   - Admin reservando/agendando diretamente.
+   - Usuario nao admin solicitando um horario para gravar.
+
+Regra de permissao:
+
+- Admin:
+  - pode criar reserva/agendamento direto na agenda do estudio.
+  - mesmo assim deve preencher participantes e aceitar regras.
+  - dados devem ser enviados imediatamente por WhatsApp.
+
+- Usuario nao admin:
+  - pode visualizar agenda.
+  - pode solicitar horario.
+  - nao cria evento direto no calendario.
+  - deve aceitar regras e preencher todos os participantes.
+  - solicitacao e dados devem ir imediatamente por WhatsApp para presidencia e Lucas.
+  - tambem deve enviar email de solicitacao para admins, se email estiver configurado.
+
+Campos minimos sugeridos para o formulario de participantes:
+
+- Nome completo.
+- CPF ou documento, se a ASSEGO exigir controle de acesso.
+- Telefone/WhatsApp.
+- Email.
+- Funcao no podcast: apresentador, convidado, entrevistado, tecnico, apoio, outro.
+- Unidade/orgao/empresa, se aplicavel.
+- Autorizacao de uso de imagem/voz: sim/nao, se a ASSEGO precisar disso.
+
+Campos minimos sugeridos para o agendamento:
+
+- Titulo/tema do podcast.
+- Responsavel pelo horario.
+- Data desejada.
+- Hora inicio.
+- Hora fim ou duracao.
+- Objetivo da gravacao.
+- Quantidade total de participantes.
+- Observacoes tecnicas: camera, microfone, transmissao ao vivo, gravacao simples, etc.
+
+Regras do estudio:
+
+- Ainda precisam ser fornecidas por Lucas/ASSEGO.
+- Nao inventar regras juridicas ou operacionais finais.
+- Criar estrutura para exibir uma lista versionada de regras.
+- Salvar no banco qual versao das regras foi aceita.
+- Salvar data/hora do aceite e usuario que aceitou.
+
+Modelo de dados recomendado:
+
+```sql
+studio_booking_requests
+  id uuid primary key
+  requester_id uuid references auth.users(id)
+  requester_name text
+  requester_email text
+  title text
+  purpose text
+  starts_at timestamptz
+  ends_at timestamptz
+  status text -- requested, approved, rejected, cancelled
+  rules_version text
+  rules_accepted_at timestamptz
+  created_at timestamptz
+
+studio_booking_participants
+  id uuid primary key
+  booking_request_id uuid references studio_booking_requests(id)
+  full_name text
+  document text
+  phone text
+  email text
+  role_in_recording text
+  organization text
+  image_voice_authorized boolean
+  created_at timestamptz
+```
+
+Para reservas criadas por admin diretamente, pode usar a mesma tabela com `status = 'approved'` e criar evento no Google Calendar em seguida.
+
+WhatsApp:
+
+- NUNCA enviar WhatsApp direto do frontend.
+- Usar Supabase Edge Function com secrets.
+- Provedores possiveis:
+  - WhatsApp Cloud API oficial da Meta.
+  - Twilio WhatsApp.
+  - Z-API ou outro provedor escolhido por Lucas/ASSEGO.
+- Antes de implementar envio real, pedir:
+  - Numero da presidencia da ASSEGO com DDI/DDD.
+  - Numero do Lucas com DDI/DDD.
+  - Provedor escolhido.
+  - Token/credenciais do provedor.
+  - Se sera necessario template aprovado de mensagem.
+
+Edge Functions recomendadas:
+
+- `calendar-list`: listar agenda para todos os autenticados.
+- `calendar-create`: admin cria reserva no Google Calendar.
+- `calendar-request`: usuario solicita horario, salva participantes, envia WhatsApp/email.
+- `booking-whatsapp-notify`: pode ser funcao separada ou parte de `calendar-request`.
+
+Mensagem WhatsApp deve conter no minimo:
+
+- Tipo: nova reserva aprovada ou nova solicitacao.
+- Nome do solicitante.
+- Email/telefone do solicitante.
+- Data e horario pretendido.
+- Tema/titulo do podcast.
+- Lista de todos os participantes com nome, telefone, email e funcao.
+- Link do painel/admin para avaliar, se houver.
+
+Cuidados:
+
+- Esses dados sao sensiveis. Tratar com cuidado por LGPD.
+- Mostrar no popup que os dados serao enviados para administracao/presidencia para controle do estudio.
+- Evitar expor dados pessoais em logs publicos.
+- RLS deve permitir leitura/escrita conforme papel.
+
+-------------------------------------------------------------------------------
+18. CHECKLIST DE VERIFICACAO ANTES DE DIZER "PRONTO"
 -------------------------------------------------------------------------------
 
 Sempre validar:
@@ -990,7 +1150,7 @@ Se mexer em Edge Function:
 - Ver logs da funcao no Supabase.
 
 -------------------------------------------------------------------------------
-18. ULTIMA SITUACAO VISUAL REPORTADA POR LUCAS
+19. ULTIMA SITUACAO VISUAL REPORTADA POR LUCAS
 -------------------------------------------------------------------------------
 
 Lucas conseguiu entrar no app via Google.
@@ -1018,7 +1178,7 @@ Isso e esperado porque a Edge Function `request-access` ainda nao foi publicada/
 O proximo passo correto nao e mexer no botao. E promover Lucas via SQL.
 
 -------------------------------------------------------------------------------
-19. RESPOSTA CURTA PARA DAR AO LUCAS SE ELE PERGUNTAR "E AGORA?"
+20. RESPOSTA CURTA PARA DAR AO LUCAS SE ELE PERGUNTAR "E AGORA?"
 -------------------------------------------------------------------------------
 
 "Agora falta rodar um SQL no Supabase para transformar seu usuario em admin. Va em SQL Editor > New query, cole o update do email `ricksonlucasgomes@gmail.com`, clique Run, depois saia e entre de novo no app. Quando aparecer `Lucas Rickson - admin`, continuamos testando a sincronizacao."
@@ -1034,7 +1194,7 @@ where p.id = u.id
 ```
 
 -------------------------------------------------------------------------------
-20. NAO ESQUECER
+21. NAO ESQUECER
 -------------------------------------------------------------------------------
 
 Este arquivo e para orientar Claude AI Pro. O arquivo `AGENTS.md` tambem existe e contem contexto geral, mas parte do estado evoluiu depois dele. Se houver conflito entre `AGENTS.md` e este arquivo quanto ao estado atual da sessao, este arquivo e mais recente.

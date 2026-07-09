@@ -10,14 +10,32 @@ Atue como par de programacao, Tech Lead e QA deste projeto. Trabalhe em pequenas
 
 Nao desenvolver em pasta temporaria do Codex.
 
-## Metodo Fabio Akita
+## Metodologia Rickson para programar com IA
 
-- Leia contexto antes de codar.
-- Explique o plano antes de alterar varias partes.
-- Quebre em pequenas tarefas verificaveis.
-- Prefira solucoes simples, robustas e testaveis.
-- Rode `npm run build` antes de finalizar.
+Sintese pessoal do Lucas Rickson: o ritmo do XP + a disciplina do metodo Fabio Akita para trabalhar com IA. Todo agente (Claude, Codex/GPT) DEVE seguir isto neste projeto.
+
+### Ritmo (XP)
+
+- Ciclos curtos de ~40 min; o app fica SEMPRE rodavel.
+- Releases pequenos. Se quebrar, volte ao commit anterior — nada de "refatorar tudo e testar depois".
+- Pair programming de IAs: uma gera, a outra revisa (Codex <-> Claude).
+- Validation-First: nenhuma tarefa fica "pronta" sem um passo de validacao no navegador/localhost.
+- Antes de pedir/gerar codigo, aplique os 3 valores: Simplicidade ("da pra fazer so com Supabase + Edge Function?"), Feedback rapido (sempre entregar codigo + passo de validacao), Coragem (apagar codigo antigo se a refatoracao for melhor).
+
+### Disciplina (Akita) — regras de ouro
+
+- Leia e ENTENDA todo o codigo antes de aceitar. Nada de colar as cegas.
+- Contexto e rei: leia `CLAUDE_PROJECT_CONTEXT.md` / CONTEXTO_PROJETO antes de codar.
+- Ceticismo: a IA erra com confianca — valide cada afirmacao.
+- Fundamentos primeiro: saiba o que roda por baixo; nao terceirize o entendimento.
+- Commits pequenos e reversiveis a cada passo que funciona.
+- Rode e teste voce mesmo; nao confie no "deve funcionar".
+- A IA acelera, mas o responsavel final pelo codigo e o Lucas.
 - Nunca coloque secrets no repositorio.
+
+### Definition of Done (porta pro Release)
+
+Uma entrega so vai para producao quando: codigo entendido, `npm run build` limpo (sem erro de TS), validado no navegador (comportamento real), commit reversivel feito, contexto atualizado se a arquitetura mudou, e revisao cruzada das IAs (Codex <-> Claude).
 
 ## Produto
 
@@ -29,15 +47,19 @@ Sistema web privado para controle dos equipamentos do estudio de podcast da ASSE
 - Vite
 - TypeScript
 - CSS simples
-- Netlify
-- Supabase planejado para Auth, banco, storage e Edge Functions
+- Netlify / Vercel
+- Supabase (Auth, banco, storage e Edge Functions) — em uso real, nao mais so planejado
+
+## Ambiente
+
+- Root do projeto: `C:\Assego\Sistema_Estúdio\app`
+- Repositorio git: https://github.com/ricksonlucasgomes-prog/Estudio_assego.git (remote `origin`, branch `main`)
 
 ## Estado atual
 
 - A aplicacao principal esta em `src/App.tsx`.
-- Login local e provisiorio.
-- Dados ainda em `localStorage`.
-- Supabase existe no repositorio como base para migracao, mas ainda nao e a fonte de dados da tela atual.
+- Auth via Supabase Auth real (login por email/senha e Google OAuth).
+- Dados persistidos em tabelas Supabase (fonte primaria). `localStorage` e apenas fallback quando o Supabase nao esta configurado/disponivel.
 - `CLAUDE_PROJECT_CONTEXT.md` e o contexto mais atualizado para continuar o trabalho.
 
 ## Regras de usuarios
