@@ -1,4 +1,5 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
+import { ClipboardCheck, PackageCheck, Video, CalendarDays, type LucideIcon } from 'lucide-react';
 import { edgeFunctionUrl, supabase, supabaseConfigured, type Profile, type UserRole } from './supabase';
 import {
   DEFAULT_DRIVE_FOLDER,
@@ -39,6 +40,15 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 };
 
+// 1. Adicionado 'agenda' ao tipo de abas
+type MainTab = 'agenda' | 'camera' | 'conference' | 'custody';
+
+type TabItem = {
+  id: MainTab;
+  label: string;
+  icon: LucideIcon;
+};
+
 const EQUIPMENT: EquipmentGroup[] = [
   { cat: 'Vídeo & Switching', items: [
     { id: 'cam', name: 'Câmeras Blackmagic', qty: 3 },
@@ -67,6 +77,10 @@ const ALL_EQUIPMENT = EQUIPMENT.flatMap((group) => group.items);
 const PROFILE_KEY = 'assego-profile-photos-v3';
 const STREAM_ID = 'kSgcFevrC0o';
 const EMAIL_RECIPIENTS = ['ricksonlucasgomes@gmail.com', 'comunicacaoassego@gmail.com', 'P3dacao@gmail.com'];
+// Documento oficial (fica em /public) e destinatários da aprovação do agendamento.
+const TERM_OF_USE_URL = '/Termo_de_Uso_Assego.pdf';
+const BOOKING_APPROVERS = ['Lucas Rickson', 'Badu', 'Sergio Vinicius'];
+const PODCAST_NOTICE = 'Toda Quarta-Feira às 19 horas tem podcast ao vivo da ASSEGO com o presidente Subtenente Sérgio';
 const UPLOAD_ENDPOINT = import.meta.env.VITE_UPLOAD_ENDPOINT as string | undefined;
 const ACCESS_REQUEST_ENDPOINT = import.meta.env.VITE_ACCESS_REQUEST_ENDPOINT as string | undefined;
 const GOOGLE_AUTH_ENABLED = import.meta.env.VITE_GOOGLE_AUTH_ENABLED === 'true';
@@ -76,6 +90,14 @@ const ROLE_LABEL: Record<UserRole, string> = {
   borrower: 'retirada',
   viewer: 'visualização',
 };
+
+// 2. Adicionada a aba de Agenda no Menu
+const MAIN_TABS: TabItem[] = [
+  { id: 'agenda', label: 'Agenda', icon: CalendarDays },
+  { id: 'camera', label: 'Câmera', icon: Video },
+  { id: 'conference', label: 'Conferência', icon: ClipboardCheck },
+  { id: 'custody', label: 'Cautela', icon: PackageCheck },
+];
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -211,7 +233,7 @@ export function App() {
   const [showIosHint, setShowIosHint] = useState(false);
   const [installed, setInstalled] = useState(false);
 
-  // Estudio
+  // Estudio / Estados Gerais
   const [pendingTake, setPendingTake] = useState('');
   const [pendingQty, setPendingQty] = useState(1);
   const [pendingEquipmentPhoto, setPendingEquipmentPhoto] = useState('');
@@ -224,6 +246,23 @@ export function App() {
   const [cameraOn, setCameraOn] = useState(false);
   const [accessRequestBusy, setAccessRequestBusy] = useState(false);
   const [accessRequestInfo, setAccessRequestInfo] = useState('');
+  
+  // 3. Estado inicial da aba agora é 'agenda'
+  const [activeTab, setActiveTab] = useState<MainTab>('agenda');
+
+  // 4. Estados da Nova Feature de Agendamento
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [showLegalPopup, setShowLegalPopup] = useState(false);
+  const [requesterData, setRequesterData] = useState({
+    name: '', rg: '', cpf: '', email: '', whatsapp: '', social: '', date: '', time: ''
+  });
+  const [guestsData, setGuestsData] = useState<{name: string, rg: string, cpf: string, email: string, whatsapp: string, social: string}[]>([]);
+
+  // 5. Gate jurídico: Termo de Uso baixado + aceite + assinatura digital
+  const [termDownloaded, setTermDownloaded] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [signatureName, setSignatureName] = useState('');
+  const [bookingBusy, setBookingBusy] = useState(false);
 
   const role: UserRole = profile?.role ?? 'viewer';
   const canManage = role === 'admin' || role === 'borrower';
@@ -231,6 +270,13 @@ export function App() {
   const isAuthed = Boolean(userId);
   const driveFolder = studio.driveFolder || DEFAULT_DRIVE_FOLDER;
   const checkedCount = useMemo(() => ALL_EQUIPMENT.filter((item) => studio.checks[item.id]).length, [studio.checks]);
+  const currentMissingIds = useMemo(
+    () => ALL_EQUIPMENT.filter((item) => !studio.checks[item.id] || item.alert).map((item) => item.id),
+    [studio.checks],
+  );
+  const conferenceObservation = observationDraft.trim();
+  const conferenceNeedsObservation = currentMissingIds.length > 0;
+  const canSaveConference = canManage && (!conferenceNeedsObservation || Boolean(conferenceObservation));
   const outsideCount = Object.keys(studio.checkouts).length;
   const lastConference = studio.conferences[0];
 
@@ -571,9 +617,13 @@ export function App() {
   function saveConference() {
     if (!canManage || !isAuthed) return;
     const checkedIds = ALL_EQUIPMENT.filter((item) => studio.checks[item.id]).map((item) => item.id);
-    const missingIds = ALL_EQUIPMENT
-      .filter((item) => !studio.checks[item.id] || item.alert)
-      .map((item) => item.id);
+    const missingIds = currentMissingIds;
+    const notes = conferenceObservation;
+
+    if (missingIds.length && !notes) {
+      flash('Informe uma observação para salvar com pendências');
+      return;
+    }
 
     const ts = Date.now();
     const record: ConferenceRecord = {
@@ -582,12 +632,21 @@ export function App() {
       ts,
       checkedIds,
       missingIds,
-      notes: studio.notes.trim(),
+      notes,
     };
+    const observationRecord: ObservationRecord | null = notes ? {
+      id: newRecordId(),
+      user: userName,
+      ts,
+      text: notes,
+    } : null;
 
     setStudio((current) => ({
       ...current,
       conferences: [record, ...(current.conferences ?? [])].slice(0, 30),
+      observations: observationRecord
+        ? [observationRecord, ...(current.observations ?? [])].slice(0, 80)
+        : current.observations,
       notificationEvents: [
         emailEvent('conference', {
           user: userName,
@@ -598,10 +657,18 @@ export function App() {
           notes: record.notes,
           savedAt: ts,
         }),
+        ...(observationRecord ? [emailEvent('observation', {
+          user: userName,
+          email: userEmail,
+          text: notes,
+          savedAt: ts,
+        })] : []),
         ...(current.notificationEvents ?? []),
       ].slice(0, 80),
     }));
     persist(() => addConference(record, userId));
+    if (observationRecord) persist(() => addObservation(observationRecord, userId));
+    if (observationRecord) setObservationDraft('');
     flash(missingIds.length ? 'Conferência salva com pendências' : 'Conferência salva sem faltas');
   }
 
@@ -658,7 +725,6 @@ export function App() {
     event.target.value = '';
   }
 
-  // Upload de foto na secao de midia: guarda a foto e (se houver backend) envia para o Drive + email.
   async function uploadMediaPhoto(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -745,6 +811,97 @@ export function App() {
     flash('Mídia removida');
   }
 
+  // ==========================================
+  // FUNÇÕES DA NOVA AGENDA
+  // ==========================================
+
+  // Gate liberado só quando o Termo foi baixado, aceito e assinado.
+  const signatureReady = termDownloaded && acceptedTerms && signatureName.trim().length >= 3;
+
+  function resetBookingForm() {
+    setRequesterData({ name: '', rg: '', cpf: '', email: '', whatsapp: '', social: '', date: '', time: '' });
+    setGuestsData([]);
+    setTermDownloaded(false);
+    setAcceptedTerms(false);
+    setSignatureName('');
+  }
+
+  const handleBookingSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (bookingBusy) return;
+
+    if (!signatureReady) {
+      alert('Antes de enviar: baixe o Termo de Uso, marque o aceite e assine com seu nome completo.');
+      return;
+    }
+
+    setBookingBusy(true);
+    try {
+      if (!supabase) throw new Error('Banco de dados não configurado.');
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        alert('Sua sessão expirou. Você precisa fazer login novamente.');
+        return;
+      }
+
+      // Metadados da assinatura digital (não-repúdio). O hash SHA-256 + IP
+      // (x-forwarded-for) são carimbados no backend pela Edge Function.
+      const signature = {
+        fullName: signatureName.trim(),
+        acceptedTerms: true,
+        termDocument: 'Termo_de_Uso_Assego.pdf',
+        termDownloaded: true,
+        signedByUserId: userId,
+        signedByEmail: userEmail,
+        signedAt: new Date().toISOString(),
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+      };
+
+      const response = await fetch('https://nqjaxsehplhbusrleuhd.supabase.co/functions/v1/submit-booking', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionData.session.access_token}`,
+        },
+        body: JSON.stringify({
+          requester: requesterData,
+          guests: guestsData,
+          booking_details: { date: requesterData.date, time: requesterData.time },
+          signature,
+          approvers: BOOKING_APPROVERS,
+        }),
+      });
+
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        throw new Error(result.error || 'Erro no servidor. Tente novamente mais tarde.');
+      }
+
+      alert('Sucesso! Sua solicitação assinada foi enviada e está sob análise da diretoria.');
+      setShowBookingModal(false);
+      resetBookingForm();
+    } catch (error: any) {
+      alert(`Falha no agendamento: ${error.message}`);
+    } finally {
+      setBookingBusy(false);
+    }
+  };
+
+  const addGuest = () => {
+    setGuestsData((current) => [...current, { name: '', rg: '', cpf: '', email: '', whatsapp: '', social: '' }]);
+  };
+
+  const removeGuest = (index: number) => {
+    setGuestsData((current) => current.filter((_, i) => i !== index));
+  };
+
+  // Atualização imutável (corrige mutação direta do estado dos convidados).
+  const updateGuest = (index: number, field: keyof (typeof guestsData)[number], value: string) => {
+    setGuestsData((current) => current.map((guest, i) => (i === index ? { ...guest, [field]: value } : guest)));
+  };
+
+
   const installFab = canShowInstall ? (
     <button className="install-fab" type="button" onClick={handleInstallClick}>
       <span className="install-fab-icon" aria-hidden="true">⭳</span>
@@ -817,7 +974,7 @@ export function App() {
         <form className="login-card" onSubmit={handleEmailAuth}>
           <div className="logo-chip"><img src="/logo.png" alt="ASSEGO PM & BM" /></div>
           <p className="eyebrow">ASSEGO PM &amp; BM</p>
-          <h1>Estúdio: agenda e equipamentos</h1>
+          <h1>Agenda e estúdio</h1>
 
           <div className="auth-tabs">
             <button type="button" className={authMode === 'login' ? 'active' : ''} onClick={() => switchAuthMode('login')}>Entrar</button>
@@ -870,11 +1027,27 @@ export function App() {
 
   return (
     <main className="wrap">
-      <header className="topbar">
+      <div className="assego-marquee" role="marquee" aria-label="Aviso do estúdio">
+        <div className="assego-marquee__track">
+          <span className="assego-marquee__item">{PODCAST_NOTICE}</span>
+          <span className="assego-marquee__item">{PODCAST_NOTICE}</span>
+          <span className="assego-marquee__item">{PODCAST_NOTICE}</span>
+          <span className="assego-marquee__item">{PODCAST_NOTICE}</span>
+        </div>
+      </div>
+
+      <header className="topbar brand-hero">
         <div className="logo-chip"><img src="/logo.png" alt="ASSEGO PM & BM" /></div>
-        <div>
-          <p className="eyebrow">ASSEGO PM &amp; BM · Estúdio</p>
-          <h1>Agenda e equipamentos</h1>
+        <div className="brand-copy">
+          <p className="eyebrow">ASSEGO PM &amp; BM</p>
+          <h1><strong>Agenda e estúdio</strong></h1>
+          <p className="brand-subtitle">Agenda, cautela e conferência diária em um painel interno.</p>
+          <div className="brand-metrics" aria-label="Resumo do estúdio">
+            <span><strong>{ALL_EQUIPMENT.length}</strong> itens</span>
+            <span><strong>{checkedCount}</strong> conferidos</span>
+            <span><strong>{outsideCount}</strong> fora</span>
+            <span><strong>{ROLE_LABEL[role]}</strong> acesso</span>
+          </div>
         </div>
         <div className="session">
           <div className="avatar">
@@ -901,32 +1074,71 @@ export function App() {
         </div>
       )}
 
-      <section className="grid">
+      <section className="tab-panels">
+        
+        {/* ============================== */}
+        {/* NOVA ABA: AGENDA               */}
+        {/* ============================== */}
+        <div className={`tab-panel ${activeTab === 'agenda' ? 'active' : ''}`}>
+          <article className="card premium-card">
+            <div className="agenda-head">
+              <h2>Agenda do Estúdio ASSEGO</h2>
+              {role === 'admin' ? (
+                <button className="btn btn-yellow" type="button" onClick={() => setShowBookingModal(true)}>+ Gerenciar / Nova Reserva</button>
+              ) : (
+                <button className="btn btn-primary" type="button" onClick={() => setShowBookingModal(true)}>Solicitar Agendamento</button>
+              )}
+            </div>
+
+            <div className="calendar-frame">
+              <iframe
+                title="Google Calendar"
+                src="https://calendar.google.com/calendar/embed?height=600&wkst=1&bgcolor=%23050B14&ctz=America%2FSao_Paulo&showTitle=0&showPrint=0&showTabs=0&showCalendars=0&showTz=0&mode=WEEK"
+                scrolling="no">
+              </iframe>
+            </div>
+          </article>
+        </div>
+
+
+        {/* ============================== */}
+        {/* ABA ANTIGA: CÂMERA AO VIVO     */}
+        {/* ============================== */}
+        <div className={`tab-panel ${activeTab === 'camera' ? 'active' : ''}`}>
         <article className="card">
           <div className="card-head">
             <h2>Câmera ao vivo</h2>
           </div>
           <div className="video-box camera-frame">
             <button type="button" className="camera-start" onClick={() => setCameraOn(true)}>
-              <span className="camera-start-icon">▶</span>
+              <span className="camera-start-icon"><Video aria-hidden="true" size={30} strokeWidth={2.4} /></span>
               <span className="camera-start-text">Estúdio em tempo real</span>
               <span className="camera-start-sub">Toque para abrir a transmissão ao vivo</span>
             </button>
           </div>
         </article>
+        </div>
 
+
+        {/* ============================== */}
+        {/* ABA ANTIGA: CONFERÊNCIA        */}
+        {/* ============================== */}
+        <div className={`tab-panel ${activeTab === 'conference' ? 'active' : ''}`}>
         <article className="card">
           <div className="card-head">
             <h2>Conferência de equipamentos</h2>
             <div className="head-actions">
               <button className="btn ghost" type="button" onClick={resetChecklist} disabled={!canManage}>Zerar</button>
-              <button className="btn" type="button" onClick={saveConference} disabled={!canManage}>Salvar conferência</button>
+              <button className="btn" type="button" onClick={saveConference} disabled={!canSaveConference}>Salvar conferência</button>
             </div>
           </div>
           <div className="ready">
             <span>{checkedCount} / {ALL_EQUIPMENT.length} conferidos</span>
             <div className="meter"><div style={{ width: `${(checkedCount / ALL_EQUIPMENT.length) * 100}%` }} /></div>
             {outsideCount > 0 && <strong className="out-count">{outsideCount} equipamento(s) fora do estúdio</strong>}
+            {conferenceNeedsObservation && !conferenceObservation && (
+              <strong className="out-count">Há pendências. Escreva uma observação para liberar a conferência.</strong>
+            )}
             <div className="conference-status">
               {lastConference ? (
                 <>
@@ -1038,9 +1250,15 @@ export function App() {
             </div>
           </div>
         </article>
+        </div>
       </section>
 
-      <section className="card media-card">
+
+      {/* ============================== */}
+      {/* ABA ANTIGA: CAUTELA            */}
+      {/* ============================== */}
+      <section className={`tab-panel ${activeTab === 'custody' ? 'active' : ''}`}>
+      <article className="card media-card">
         <div className="card-head">
           <h2>Cautela</h2>
           <a className="btn ghost" href={driveFolder} target="_blank" rel="noreferrer">Abrir Drive</a>
@@ -1092,11 +1310,218 @@ export function App() {
             </article>
           ))}
         </div>
+      </article>
       </section>
 
-      <footer>
+      <footer className="status-footer">
         <span>{savedNote}</span>
       </footer>
+
+      {/* ============================== */}
+      {/* RENDERIZAÇÃO DO MODAL          */}
+      {/* ============================== */}
+      {showBookingModal && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setShowBookingModal(false)}>
+          <div className="modal-content" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-head">
+              <h3>Formulário de Acesso e Gravação</h3>
+              <button className="modal-close" type="button" onClick={() => setShowBookingModal(false)} aria-label="Fechar">✕</button>
+            </div>
+
+            <div className="legal-notice-box">
+              <strong>⚠️ Controle de Acesso Obrigatório (LGPD)</strong>
+              <button type="button" className="legal-notice-box__toggle" onClick={() => setShowLegalPopup(!showLegalPopup)}>
+                {showLegalPopup ? 'Ocultar embasamento jurídico' : 'Ler embasamento jurídico'}
+              </button>
+              {showLegalPopup && (
+                <div className="legal-notice-box__body">
+                  Para garantir a segurança orgânica das instalações da ASSEGO, a coleta destes dados é amparada pela <strong>Lei nº 13.709/2018</strong>, Art. 7º, incisos VII e IX. Uso restrito à diretoria.
+                </div>
+              )}
+            </div>
+
+            <form onSubmit={handleBookingSubmit}>
+              <p className="modal-section-title">1. Dados do Solicitante</p>
+              <div className="form-grid">
+                <div className="form-group full">
+                  <label htmlFor="req-name">Nome Completo</label>
+                  <input id="req-name" required type="text" placeholder="Seu nome completo" value={requesterData.name} onChange={(e) => setRequesterData({ ...requesterData, name: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="req-email">E-mail</label>
+                  <input id="req-email" required type="email" placeholder="voce@email.com" value={requesterData.email} onChange={(e) => setRequesterData({ ...requesterData, email: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="req-whats">WhatsApp</label>
+                  <input id="req-whats" required type="text" placeholder="(62) 90000-0000" value={requesterData.whatsapp} onChange={(e) => setRequesterData({ ...requesterData, whatsapp: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="req-rg">RG</label>
+                  <input id="req-rg" required type="text" placeholder="0000000" value={requesterData.rg} onChange={(e) => setRequesterData({ ...requesterData, rg: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="req-cpf">CPF</label>
+                  <input id="req-cpf" required type="text" placeholder="000.000.000-00" value={requesterData.cpf} onChange={(e) => setRequesterData({ ...requesterData, cpf: e.target.value })} />
+                </div>
+                <div className="form-group full">
+                  <label htmlFor="req-social">Redes Sociais (@)</label>
+                  <input id="req-social" type="text" placeholder="@seu_perfil (opcional)" value={requesterData.social} onChange={(e) => setRequesterData({ ...requesterData, social: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="req-date">Data Desejada</label>
+                  <input id="req-date" required type="date" value={requesterData.date} onChange={(e) => setRequesterData({ ...requesterData, date: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="req-time">Horário</label>
+                  <input id="req-time" required type="time" value={requesterData.time} onChange={(e) => setRequesterData({ ...requesterData, time: e.target.value })} />
+                </div>
+              </div>
+
+              <p className="modal-section-title">2. Convidados (Participantes)</p>
+              {guestsData.length === 0 && (
+                <p className="guest-empty">Nenhum convidado adicionado. Se a gravação terá participantes, cadastre cada um abaixo.</p>
+              )}
+              {guestsData.map((guest, index) => (
+                <div className="guest-card" key={index}>
+                  <div className="guest-card__head">
+                    <p className="guest-card__title">Convidado {index + 1}</p>
+                    <button type="button" className="guest-card__remove" onClick={() => removeGuest(index)}>Remover</button>
+                  </div>
+                  <div className="form-grid">
+                    <div className="form-group full">
+                      <label>Nome Completo</label>
+                      <input required type="text" placeholder="Nome do convidado" value={guest.name} onChange={(e) => updateGuest(index, 'name', e.target.value)} />
+                    </div>
+                    <div className="form-group">
+                      <label>RG</label>
+                      <input required type="text" placeholder="0000000" value={guest.rg} onChange={(e) => updateGuest(index, 'rg', e.target.value)} />
+                    </div>
+                    <div className="form-group">
+                      <label>CPF</label>
+                      <input required type="text" placeholder="000.000.000-00" value={guest.cpf} onChange={(e) => updateGuest(index, 'cpf', e.target.value)} />
+                    </div>
+                    <div className="form-group">
+                      <label>WhatsApp</label>
+                      <input required type="text" placeholder="(62) 90000-0000" value={guest.whatsapp} onChange={(e) => updateGuest(index, 'whatsapp', e.target.value)} />
+                    </div>
+                    <div className="form-group">
+                      <label>E-mail</label>
+                      <input type="email" placeholder="convidado@email.com (opcional)" value={guest.email} onChange={(e) => updateGuest(index, 'email', e.target.value)} />
+                    </div>
+                    <div className="form-group full">
+                      <label>Redes Sociais (@)</label>
+                      <input type="text" placeholder="@perfil (opcional)" value={guest.social} onChange={(e) => updateGuest(index, 'social', e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <button type="button" className="btn btn-outline btn-block" onClick={addGuest}>
+                + Adicionar Convidado
+              </button>
+
+              {/* ============================================================
+                  3. GATE JURÍDICO — Termo de Uso + Assinatura Digital
+                  A solicitação só é enviada aos aprovadores após baixar o
+                  Termo, aceitar e assinar. O backend (Edge Function) carimba
+                  IP (x-forwarded-for), timestamp e hash SHA-256 na tabela
+                  legal_signatures para não-repúdio.
+                  ============================================================ */}
+              <p className="modal-section-title">3. Termo de Uso e Assinatura Digital</p>
+              <div className="signature-gate">
+                <div className={`signature-step ${termDownloaded ? 'done' : ''}`}>
+                  <span className="signature-step__label">
+                    <span className="signature-step__num">{termDownloaded ? '✓' : '1'}</span>
+                    Baixe e leia o Termo de Uso / Regimento Interno
+                  </span>
+                  <a
+                    className="term-download"
+                    href={TERM_OF_USE_URL}
+                    download
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => setTermDownloaded(true)}
+                  >
+                    ⬇ Baixar Termo de Uso (PDF)
+                  </a>
+                </div>
+
+                <div className={`signature-step ${acceptedTerms ? 'done' : ''}`}>
+                  <span className="signature-step__label">
+                    <span className="signature-step__num">{acceptedTerms ? '✓' : '2'}</span>
+                    Aceite das regras
+                  </span>
+                  <label className="consent-row">
+                    <input
+                      type="checkbox"
+                      checked={acceptedTerms}
+                      disabled={!termDownloaded}
+                      onChange={(e) => setAcceptedTerms(e.target.checked)}
+                    />
+                    <span>Li e concordo com o Termo de Uso, o Regimento Interno e as regras do estúdio da ASSEGO, e assumo responsabilidade pelas informações prestadas.</span>
+                  </label>
+                </div>
+
+                <div className={`signature-step ${signatureName.trim().length >= 3 ? 'done' : ''}`}>
+                  <span className="signature-step__label">
+                    <span className="signature-step__num">{signatureName.trim().length >= 3 ? '✓' : '3'}</span>
+                    Assinatura digital
+                  </span>
+                  <div className="signature-input">
+                    <input
+                      type="text"
+                      placeholder="Digite seu nome completo para assinar"
+                      value={signatureName}
+                      disabled={!acceptedTerms}
+                      onChange={(e) => setSignatureName(e.target.value)}
+                    />
+                  </div>
+                  <span className="signature-hint">
+                    Ao assinar, data, hora e dispositivo são registrados para validade jurídica (LGPD).
+                  </span>
+                </div>
+
+                {/* Gancho de UI para futura Autenticação Facial (Face ID).
+                    Fluxo: navigator.mediaDevices.getUserMedia -> frame Base64 ->
+                    Edge Function -> AWS Rekognition/Azure Face. */}
+                <div className="faceid-placeholder" aria-hidden="true">
+                  <span aria-hidden="true">📷</span>
+                  Validação facial (Face ID) — em breve, antes do envio.{' '}
+                </div>
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" className="btn btn-outline" onClick={() => setShowBookingModal(false)}>Cancelar</button>
+                <button type="submit" className="btn btn-yellow" disabled={!signatureReady || bookingBusy}>
+                  {bookingBusy ? 'Enviando...' : 'Assinar e enviar solicitação'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================== */}
+      {/* MENUS E MODAIS NATIVOS         */}
+      {/* ============================== */}
+      <nav className="bottom-tabs" aria-label="Navegação principal do app">
+        {MAIN_TABS.map((tab) => {
+          const Icon = tab.icon;
+          const selected = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              className={selected ? 'active' : ''}
+              aria-current={selected ? 'page' : undefined}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              <Icon aria-hidden="true" size={22} strokeWidth={2.2} />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </nav>
       {installFab}
       {iosModal}
       {liveModal}
