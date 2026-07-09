@@ -60,6 +60,36 @@ alter table public.studio_booking_requests enable row level security;
 alter table public.studio_booking_participants enable row level security;
 
 -- ---------------------------------------------------------------------
+-- Reconciliação de tabela pré-existente
+-- O `create table if not exists` acima NÃO altera colunas de uma tabela
+-- que já existia com outra definição. Uma versão anterior desta tabela
+-- usava status default 'pending' (nullable, sem check). Alinhamos aqui:
+-- migra o sentinela antigo 'pending' -> 'requested' e fixa default/check.
+-- Idempotente: após a 1ª execução, vira no-op.
+-- ---------------------------------------------------------------------
+update public.studio_booking_requests
+  set status = 'requested'
+  where status is null or status = 'pending';
+
+alter table public.studio_booking_requests
+  alter column status set default 'requested';
+alter table public.studio_booking_requests
+  alter column status set not null;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.studio_booking_requests'::regclass
+      and conname = 'studio_booking_requests_status_check'
+  ) then
+    alter table public.studio_booking_requests
+      add constraint studio_booking_requests_status_check
+      check (status in ('requested', 'approved', 'rejected', 'cancelled'));
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------
 -- RLS: studio_booking_requests
 -- A Edge Function roda com o JWT do usuário (anon key + Authorization),
 -- então estas policies valem para as escritas dela.
