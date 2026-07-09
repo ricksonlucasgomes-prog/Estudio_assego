@@ -1,5 +1,5 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, ClipboardCheck, PackageCheck, Video, CalendarDays, Volume2, VolumeX, Camera, LogOut, type LucideIcon } from 'lucide-react';
+import { Bell, ClipboardCheck, PackageCheck, Video, CalendarDays, Volume2, VolumeX, Camera, LogOut, ChevronLeft, ChevronRight, type LucideIcon } from 'lucide-react';
 import { edgeFunctionUrl, supabase, supabaseConfigured, type Profile, type UserRole } from './supabase';
 import { TermsScrollPopup } from './TermsScrollPopup';
 import { BOOKING_TERMS, EQUIPMENT_TERMS } from './termsContent';
@@ -102,19 +102,11 @@ type PodcastEpisode = {
 type AvailabilitySlot = { time: string; available: boolean };
 type AvailabilityDay = { date: string; weekday: number; slots: AvailabilitySlot[]; hasAvailability: boolean };
 
-const PODCAST_EPISODES: PodcastEpisode[] = [
-  {
-    id: 'assego-live-main',
-    title: 'Podcast ASSEGO',
-    channel: 'Assego Oficial',
-    youtubeId: STREAM_ID,
-    status: 'recorded',
-    duration: 'Ao vivo / replay',
-    publishedAt: 'Assego Studio',
-    description: 'Podcast oficial gravado no estúdio da ASSEGO.',
-    audioUrl: '',
-  },
-];
+// Lista de episódios gravados exibida abaixo do player (filtro Todos/Ao
+// vivo/Gravados). Vazia até existir episódio real para cadastrar — sem
+// placeholder falso. O player principal da aba "Ao Vivo" continua usando
+// STREAM_ID direto (ver fallback em selectedPodcast?.youtubeId ?? STREAM_ID).
+const PODCAST_EPISODES: PodcastEpisode[] = [];
 
 const EMAIL_RECIPIENTS = ['ricksonlucasgomes@gmail.com', 'comunicacaoassego@gmail.com', 'P3dacao@gmail.com'];
 // Destinatários da aprovação do agendamento. O texto do Termo de Uso agora
@@ -324,6 +316,25 @@ export function App() {
   const [selectedPodcastId, setSelectedPodcastId] = useState(PODCAST_EPISODES[0]?.id ?? '');
   const [podcastFilter, setPodcastFilter] = useState<'all' | 'live' | 'recorded'>('all');
   const [audioEnabled, setAudioEnabled] = useState(false);
+  // Preferência de sidebar recolhida (só desktop). Persistida por aparelho.
+  const [sideNavCollapsed, setSideNavCollapsed] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem('assego-sidenav-collapsed-v1') === '1';
+    } catch {
+      return false;
+    }
+  });
+  function toggleSideNav() {
+    setSideNavCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem('assego-sidenav-collapsed-v1', next ? '1' : '0');
+      } catch {
+        // localStorage indisponível (ex.: modo privado); segue só em memória.
+      }
+      return next;
+    });
+  }
   
   // 3. Estado inicial da aba agora é 'camera' (Ao Vivo)
   const [activeTab, setActiveTab] = useState<MainTab>('camera');
@@ -1748,39 +1759,43 @@ export function App() {
               {selectedPodcast?.description && <span>{selectedPodcast.description}</span>}
             </div>
 
-            <div className="youtube-filter-row">
-              <button type="button" className={podcastFilter === 'all' ? 'active' : ''} onClick={() => setPodcastFilter('all')}>
-                Todos
-              </button>
-              <button type="button" className={podcastFilter === 'live' ? 'active' : ''} onClick={() => setPodcastFilter('live')}>
-                Ao vivo
-              </button>
-              <button type="button" className={podcastFilter === 'recorded' ? 'active' : ''} onClick={() => setPodcastFilter('recorded')}>
-                Gravados
-              </button>
-            </div>
+            {PODCAST_EPISODES.length > 0 && (
+              <>
+                <div className="youtube-filter-row">
+                  <button type="button" className={podcastFilter === 'all' ? 'active' : ''} onClick={() => setPodcastFilter('all')}>
+                    Todos
+                  </button>
+                  <button type="button" className={podcastFilter === 'live' ? 'active' : ''} onClick={() => setPodcastFilter('live')}>
+                    Ao vivo
+                  </button>
+                  <button type="button" className={podcastFilter === 'recorded' ? 'active' : ''} onClick={() => setPodcastFilter('recorded')}>
+                    Gravados
+                  </button>
+                </div>
 
-            <div className="youtube-podcast-list">
-              {filteredPodcasts.map((episode) => (
-                <button
-                  key={episode.id}
-                  type="button"
-                  className={`youtube-podcast-item ${selectedPodcast?.id === episode.id ? 'active' : ''}`}
-                  onClick={() => setSelectedPodcastId(episode.id)}
-                >
-                  <img
-                    src={`https://img.youtube.com/vi/${episode.youtubeId}/hqdefault.jpg`}
-                    alt=""
-                    loading="lazy"
-                  />
-                  <span>
-                    <strong>{episode.title}</strong>
-                    <small>{episode.channel}</small>
-                    <small>{episode.status === 'live' ? 'Ao vivo agora' : episode.duration || 'Podcast gravado'}</small>
-                  </span>
-                </button>
-              ))}
-            </div>
+                <div className="youtube-podcast-list">
+                  {filteredPodcasts.map((episode) => (
+                    <button
+                      key={episode.id}
+                      type="button"
+                      className={`youtube-podcast-item ${selectedPodcast?.id === episode.id ? 'active' : ''}`}
+                      onClick={() => setSelectedPodcastId(episode.id)}
+                    >
+                      <img
+                        src={`https://img.youtube.com/vi/${episode.youtubeId}/hqdefault.jpg`}
+                        alt=""
+                        loading="lazy"
+                      />
+                      <span>
+                        <strong>{episode.title}</strong>
+                        <small>{episode.channel}</small>
+                        <small>{episode.status === 'live' ? 'Ao vivo agora' : episode.duration || 'Podcast gravado'}</small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </article>
         </div>
 
@@ -2351,7 +2366,10 @@ export function App() {
       {/* Navegação em coluna à esquerda, só visível em telas desktop
           (ver @media min-width em styles.css). No mobile, .bottom-tabs
           continua sendo a navegação real. */}
-      <nav className="side-nav" aria-label="Navegação principal do app (desktop)">
+      <nav
+        className={`side-nav ${sideNavCollapsed ? 'side-nav--collapsed' : ''}`}
+        aria-label="Navegação principal do app (desktop)"
+      >
         <div className="side-nav__brand">
           <div className="logo-chip"><img src="/logo.png" alt="ASSEGO PM & BM" /></div>
           <div className="side-nav__brand-copy">
@@ -2369,6 +2387,7 @@ export function App() {
                 type="button"
                 className={selected ? 'active' : ''}
                 aria-current={selected ? 'page' : undefined}
+                title={sideNavCollapsed ? tab.label : undefined}
                 onClick={() => setActiveTab(tab.id)}
               >
                 <Icon aria-hidden="true" size={20} strokeWidth={2.2} />
@@ -2377,6 +2396,16 @@ export function App() {
             );
           })}
         </div>
+        <button
+          type="button"
+          className="side-nav__collapse"
+          onClick={toggleSideNav}
+          aria-label={sideNavCollapsed ? 'Expandir menu' : 'Recolher menu'}
+          title={sideNavCollapsed ? 'Expandir menu' : 'Recolher menu'}
+        >
+          {sideNavCollapsed ? <ChevronRight size={16} strokeWidth={2.4} aria-hidden="true" /> : <ChevronLeft size={16} strokeWidth={2.4} aria-hidden="true" />}
+          <span>Recolher</span>
+        </button>
       </nav>
 
       <nav className="bottom-tabs" aria-label="Navegação principal do app">
