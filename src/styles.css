@@ -462,6 +462,25 @@ footer {
   border: 1px solid rgba(var(--white-rgb), .12);
   background: #16192a;
   box-shadow: 0 16px 40px rgba(0, 0, 0, .45);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--white-rgb), .28) transparent;
+}
+
+.notif-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.notif-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.notif-panel::-webkit-scrollbar-thumb {
+  background: rgba(var(--white-rgb), .22);
+  border-radius: var(--radius-pill);
+}
+
+.notif-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--white-rgb), .34);
 }
 
 .notif-panel__head {
