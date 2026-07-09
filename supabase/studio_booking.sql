@@ -72,7 +72,9 @@ alter table public.studio_booking_participants enable row level security;
 -- alguém promove profiles.role = 'admin' manualmente no SQL Editor):
 --   Badu, Sérgio Vinicius, Sgt. Tiago Raiz.
 -- 'Serginho' é tratado só como possível apelido de Sérgio Vinicius, não é
--- um quarto usuário/admin separado.
+-- um quarto usuário/admin separado. O match de Tiago usa '%tiago raiz%'
+-- (nunca 'tiago%' sozinho) para não confundir com "Tiago Junior", que é só
+-- usuário autorizado de retirada (ver AGENTS.md), não admin.
 -- Lucas Rickson não é mais 'admin', é 'developer' (acesso total — ver
 -- supabase/add_developer_role.sql, que ainda precisa ser executada para
 -- o CHECK da coluna aceitar esse valor). Ele passa aqui pelo role check,
@@ -97,7 +99,6 @@ as $$
             or lower(p.full_name) like 'sergio%'
             or lower(p.full_name) like 'sérgio%'
             or lower(p.full_name) = 'serginho'
-            or lower(p.full_name) like 'tiago%'
             or lower(p.full_name) like '%tiago raiz%'
           )
         )

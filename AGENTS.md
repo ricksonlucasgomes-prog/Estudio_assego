@@ -64,21 +64,32 @@ Sistema web privado para controle dos equipamentos do estudio de podcast da ASSE
 
 ## Regras de usuarios
 
-Admins:
+Lucas Rickson: role `developer` (acesso total, equivalente a admin), nao
+`admin`. Ele e o dono/desenvolvedor do sistema e continua sendo o aprovador
+unico de solicitacoes (agendamento e retirada de equipamento).
 
-- Lucas
+Admins oficiais (apos aprovacao manual):
+
 - Badu
-- Sergio Vinicius / Serginho
+- Sergio Vinicius ("Serginho" e so um possivel apelido dele, nao e um
+  quarto usuario/admin separado)
+- Sgt. Tiago Raiz
 
-Usuarios autorizados de retirada:
+Regra de promocao (vale para todos os admins acima, sem excecao):
 
-- Tiago Junior
+- Ninguem e criado ou promovido a admin/developer automaticamente.
+- Cada pessoa precisa se cadastrar no app primeiro (criar login proprio).
+- So depois disso um admin/developer promove manualmente `profiles.role`
+  no SQL Editor do Supabase.
+
+Usuarios autorizados de retirada (nao sao admin):
+
+- Tiago Junior (pessoa diferente de "Sgt. Tiago Raiz" — nao confundir)
 - Bruna
 - Tulio
 - Dani
 - Flavio Araujo
 - Flavio Gabriel
-- Tiago Raiz
 - Arthur Renne
 
 ## Requisitos criticos

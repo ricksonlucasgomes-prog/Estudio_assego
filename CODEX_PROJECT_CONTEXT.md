@@ -59,12 +59,29 @@ Escritas no Supabase lançam erro para o `App.tsx` tratar.
 
 ## 5. Papéis (roles)
 
-Tipo: `'admin' | 'borrower' | 'viewer'`. No app: `canManage = admin || borrower`.
+Tipo: `'admin' | 'developer' | 'borrower' | 'viewer'` (`src/supabase.ts`).
+No app: `isAdmin = admin || developer`; `canManage = isAdmin || borrower`.
 
-- **admin**: gerencia tudo; cria reserva direta; aprova solicitações; lê dados sensíveis.
+- **developer**: só Lucas Rickson. Acesso total (equivalente a admin em tudo
+  que usa `isAdmin`/`current_user_role()`), e é o **aprovador único** de
+  solicitações (agendamento e retirada de equipamento) — ver
+  `current_user_is_lead_approver()` em `supabase/equipment_access.sql`.
+  Requer `supabase/add_developer_role.sql` (ainda não executada) para o
+  CHECK da coluna `profiles.role` aceitar o valor `'developer'`.
+- **admin**: papel oficial de Badu, Sérgio Vinicius e Sgt. Tiago Raiz após
+  aprovação manual. Gerencia equipamento/checklist/conferência e **vê** as
+  listas de solicitações (RLS de SELECT via `current_user_is_booking_approver()`),
+  mas **não aprova/rejeita** — só o `developer` (Lucas) tem UPDATE liberado.
 - **borrower**: pode retirar equipamento e salvar conferência.
 - **viewer**: só visualiza; **não vê a aba "Conferência"** (nav filtrada por
   `visibleTabs`); pode clicar "Pedir liberação" (→ `request-access`).
+
+Regra de promoção (todas as roles acima `viewer`): **ninguém é promovido
+automaticamente**. A pessoa precisa se cadastrar no app primeiro (login
+próprio via Supabase Auth); só depois disso alguém já promovido roda um
+`update public.profiles set role = ...` manual no SQL Editor (ver blocos
+comentados em `supabase/schema.sql`). "Serginho" é tratado só como possível
+apelido de Sérgio Vinicius, nunca um quarto admin.
 
 ## 6. Abas (bottom-tabs)
 
@@ -91,7 +108,8 @@ A Edge Function `submit-booking`:
    payload canônico + **IP** (`x-forwarded-for`) + user-agent (não-repúdio);
 4. **compensação**: se a assinatura falhar, desfaz a reserva (delete);
 5. não dispara WhatsApp, Telegram ou n8n; a notificação é interna no app:
-   Lucas, Badu e Sergio Vinicius veem novas solicitações na aba Agenda.
+   Lucas (developer) e os 3 admins oficiais (Badu, Sérgio Vinicius, Sgt.
+   Tiago Raiz) veem novas solicitações na aba Agenda; só Lucas aprova/rejeita.
 
 Colunas de `studio_booking_requests`/`participants` espelham **exatamente** o
 insert da função — não renomear sem ajustar `submit-booking/index.ts`.
@@ -116,9 +134,12 @@ conseguem listar/aprovar/rejeitar solicitações dentro do app; SQLs de
 agendamento já foram aplicados no Supabase; `submit-booking` já foi publicada.
 
 **Pendente:**
-1. Badu e Sergio precisam criar login e ter `profiles.role = 'admin'` para
-   receberem a notificação interna.
-2. Testar o fluxo "Assinar e enviar solicitação" ponta a ponta com usuário
+1. Badu, Sérgio Vinicius e Sgt. Tiago Raiz precisam criar login próprio no
+   app primeiro; só depois disso alguém promove `profiles.role = 'admin'`
+   manualmente para cada um (nenhuma promoção é automática).
+2. Rodar `supabase/add_developer_role.sql` para o CHECK da coluna aceitar
+   `'developer'` e então promover Lucas Rickson para esse papel.
+3. Testar o fluxo "Assinar e enviar solicitação" ponta a ponta com usuário
    logado, conferindo cadastro no banco e aparição no painel interno da Agenda.
 
 ## 10. Regras de ouro / cuidados
