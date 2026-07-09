@@ -1130,8 +1130,8 @@ footer {
   font-weight: 600;
 }
 .auth-tabs button.active {
-  background: var(--accent);
-  color: #fff;
+  background: var(--text);
+  color: var(--bg);
 }
 .login-info {
   background: rgba(var(--ok-rgb), .12);
@@ -1353,6 +1353,14 @@ footer {
 .live-modal-close:hover {
   color: var(--text);
   border-color: var(--accent);
+}
+
+.live-modal .camera-overlay {
+  display: none;
+}
+
+.live-modal .camera-frame iframe {
+  filter: none;
 }
 
 /* =====================================================================
@@ -1981,4 +1989,173 @@ footer {
 @media (max-width: 640px) {
   .booking-admin .card-head { flex-direction: column; }
   .booking-item__actions .btn { flex: 1; text-align: center; }
+}
+
+
+/* ============================== */
+/* ABA AO VIVO — estilo YouTube mobile (MVP) */
+/* ============================== */
+.youtube-live-screen {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 96px;
+}
+
+.youtube-player-shell {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #000;
+  aspect-ratio: 16 / 9;
+  box-shadow: 0 18px 42px rgba(var(--black-rgb), .32);
+}
+
+.youtube-player-shell iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.youtube-current-info {
+  display: grid;
+  gap: 5px;
+  padding: 0 4px;
+}
+
+.youtube-current-info h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(18px, 4vw, 26px);
+  line-height: 1.15;
+}
+
+.youtube-current-info p,
+.youtube-current-info span {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.youtube-filter-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 0 2px;
+  scrollbar-width: none;
+}
+
+.youtube-filter-row::-webkit-scrollbar {
+  display: none;
+}
+
+.youtube-filter-row button {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: var(--radius-pill);
+  padding: 10px 16px;
+  background: rgba(var(--white-rgb), .08);
+  color: var(--text);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.youtube-filter-row button.active {
+  background: var(--text);
+  color: var(--bg);
+}
+
+.youtube-podcast-list {
+  display: grid;
+  gap: 14px;
+}
+
+.youtube-podcast-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 156px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.youtube-podcast-item img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 12px;
+  background: #000;
+}
+
+.youtube-podcast-item span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.youtube-podcast-item strong {
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.youtube-podcast-item small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.youtube-podcast-item.active strong {
+  color: var(--accent-bright);
+}
+
+.audio-floating-btn {
+  position: fixed;
+  right: 18px;
+  bottom: calc(92px + env(safe-area-inset-bottom));
+  z-index: 55;
+  width: 52px;
+  height: 52px;
+  border: 1px solid rgba(var(--white-rgb), .16);
+  border-radius: 999px;
+  background: rgba(5, 10, 24, .92);
+  color: var(--text);
+  font-size: 22px;
+  cursor: pointer;
+  box-shadow: 0 16px 34px rgba(var(--black-rgb), .38);
+  backdrop-filter: blur(14px);
+}
+
+.audio-floating-btn.active {
+  background: linear-gradient(135deg, var(--accent-bright), #ffd45c);
+  color: #081324;
+}
+
+/*
+  Nota de design: este preenchimento dourado sólido é provisório (MVP).
+  No redesign, o estado ativo deve seguir o mesmo tratamento minimalista
+  já aplicado em .bottom-tabs (cor no ícone + indicador sutil, sem bloco cheio).
+*/
+
+@media (max-width: 620px) {
+  .youtube-live-screen { gap: 12px; }
+  .youtube-player-shell {
+    margin-left: -10px;
+    margin-right: -10px;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+  }
+  .youtube-podcast-item { grid-template-columns: 150px minmax(0, 1fr); }
+  .audio-floating-btn {
+    right: 14px;
+    bottom: calc(96px + env(safe-area-inset-bottom));
+  }
 }

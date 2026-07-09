@@ -1,5 +1,5 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
-import { Bell, ClipboardCheck, PackageCheck, Video, CalendarDays, type LucideIcon } from 'lucide-react';
+import { Bell, ClipboardCheck, PackageCheck, Video, CalendarDays, Volume2, VolumeX, type LucideIcon } from 'lucide-react';
 import { edgeFunctionUrl, supabase, supabaseConfigured, type Profile, type UserRole } from './supabase';
 import {
   DEFAULT_DRIVE_FOLDER,
@@ -80,6 +80,33 @@ const EQUIPMENT: EquipmentGroup[] = [
 const ALL_EQUIPMENT = EQUIPMENT.flatMap((group) => group.items);
 const PROFILE_KEY = 'assego-profile-photos-v3';
 const STREAM_ID = 'kSgcFevrC0o';
+
+type PodcastEpisode = {
+  id: string;
+  title: string;
+  channel: string;
+  youtubeId: string;
+  status: 'live' | 'recorded';
+  duration?: string;
+  publishedAt?: string;
+  description?: string;
+  audioUrl?: string;
+};
+
+const PODCAST_EPISODES: PodcastEpisode[] = [
+  {
+    id: 'assego-live-main',
+    title: 'Podcast ASSEGO',
+    channel: 'Assego Oficial',
+    youtubeId: STREAM_ID,
+    status: 'recorded',
+    duration: 'Ao vivo / replay',
+    publishedAt: 'Assego Studio',
+    description: 'Podcast oficial gravado no estúdio da ASSEGO.',
+    audioUrl: '',
+  },
+];
+
 const EMAIL_RECIPIENTS = ['ricksonlucasgomes@gmail.com', 'comunicacaoassego@gmail.com', 'P3dacao@gmail.com'];
 // Documento oficial (fica em /public) e destinatários da aprovação do agendamento.
 const TERM_OF_USE_URL = '/Termo_de_Uso_Assego.pdf';
@@ -269,6 +296,9 @@ export function App() {
   const [cameraOn, setCameraOn] = useState(false);
   const [accessRequestBusy, setAccessRequestBusy] = useState(false);
   const [accessRequestInfo, setAccessRequestInfo] = useState('');
+  const [selectedPodcastId, setSelectedPodcastId] = useState(PODCAST_EPISODES[0]?.id ?? '');
+  const [podcastFilter, setPodcastFilter] = useState<'all' | 'live' | 'recorded'>('all');
+  const [audioEnabled, setAudioEnabled] = useState(false);
   
   // 3. Estado inicial da aba agora é 'agenda'
   const [activeTab, setActiveTab] = useState<MainTab>('agenda');
@@ -292,6 +322,12 @@ export function App() {
   const [bookingListBusy, setBookingListBusy] = useState(false);
   const [bookingListError, setBookingListError] = useState('');
   const [bookingActionId, setBookingActionId] = useState('');
+
+  const selectedPodcast = PODCAST_EPISODES.find((episode) => episode.id === selectedPodcastId) ?? PODCAST_EPISODES[0];
+  const filteredPodcasts = PODCAST_EPISODES.filter((episode) => {
+    if (podcastFilter === 'all') return true;
+    return episode.status === podcastFilter;
+  });
 
   const role: UserRole = profile?.role ?? 'viewer';
   const canManage = role === 'admin' || role === 'borrower';
@@ -1031,14 +1067,14 @@ export function App() {
     <div className="live-modal" role="dialog" aria-modal="true" onClick={() => setCameraOn(false)}>
       <div className="live-modal-card" onClick={(event) => event.stopPropagation()}>
         <div className="live-modal-head">
-          <span className="live-badge camera-rec">REC</span>
-          <span className="live-modal-title">Ao Vivo</span>
+          <span className="live-badge">YouTube</span>
+          <span className="live-modal-title">Podcast ASSEGO</span>
           <button className="live-modal-close" type="button" onClick={() => setCameraOn(false)} aria-label="Fechar transmissão">✕</button>
         </div>
         <div className="video-box camera-frame">
           <iframe
-            title="Transmissão ao vivo"
-            src={`https://www.youtube.com/embed/${STREAM_ID}?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0&playsinline=1`}
+            title="Podcast ASSEGO no YouTube"
+            src={`https://www.youtube.com/embed/${STREAM_ID}?autoplay=1&mute=1&controls=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`}
             allow="autoplay; encrypted-media; picture-in-picture"
             allowFullScreen
           />
@@ -1105,7 +1141,7 @@ export function App() {
           {authError && <div className="login-error">{authError}</div>}
           {authInfo && <div className="login-info">{authInfo}</div>}
 
-          <button className="btn" type="submit" disabled={authBusy || !supabaseConfigured}>
+          <button className="btn btn-yellow" type="submit" disabled={authBusy || !supabaseConfigured}>
             {authBusy ? 'Aguarde...' : authMode === 'signup' ? 'Criar conta' : 'Entrar'}
           </button>
 
@@ -1313,25 +1349,54 @@ export function App() {
         {/* ABA: AO VIVO                  */}
         {/* ============================== */}
         <div className={`tab-panel ${activeTab === 'camera' ? 'active' : ''}`}>
-          <article className="card premium-card">
-            <div className="agenda-head">
-              <div>
-                <p className="eyebrow">Transmissão oficial</p>
-                <h2>Ao Vivo no Assego Studio</h2>
-              </div>
-              <span className="live-badge camera-rec">YouTube</span>
+          <article className="youtube-live-screen">
+            <div className="youtube-player-shell">
+              <iframe
+                title={selectedPodcast?.title ?? 'Podcast ASSEGO'}
+                src={`https://www.youtube.com/embed/${selectedPodcast?.youtubeId ?? STREAM_ID}?autoplay=0&controls=1&rel=0&modestbranding=1&playsinline=1`}
+                allow="autoplay; encrypted-media; picture-in-picture"
+                allowFullScreen
+              />
             </div>
 
-            <div className="video-box camera-frame">
-              <button type="button" className="camera-start" onClick={() => setCameraOn(true)}>
-                <span className="camera-start-icon">
-                  <Video aria-hidden="true" size={30} strokeWidth={2.4} />
-                </span>
-                <span className="camera-start-text">Assistir transmissão</span>
-                <span className="camera-start-sub">
-                  Acompanhe podcasts ao vivo e conteúdos transmitidos direto do estúdio.
-                </span>
+            <div className="youtube-current-info">
+              <h2>{selectedPodcast?.title ?? 'Podcast ASSEGO'}</h2>
+              <p>{selectedPodcast?.channel ?? 'Assego Oficial'}</p>
+              {selectedPodcast?.description && <span>{selectedPodcast.description}</span>}
+            </div>
+
+            <div className="youtube-filter-row">
+              <button type="button" className={podcastFilter === 'all' ? 'active' : ''} onClick={() => setPodcastFilter('all')}>
+                Todos
               </button>
+              <button type="button" className={podcastFilter === 'live' ? 'active' : ''} onClick={() => setPodcastFilter('live')}>
+                Ao vivo
+              </button>
+              <button type="button" className={podcastFilter === 'recorded' ? 'active' : ''} onClick={() => setPodcastFilter('recorded')}>
+                Gravados
+              </button>
+            </div>
+
+            <div className="youtube-podcast-list">
+              {filteredPodcasts.map((episode) => (
+                <button
+                  key={episode.id}
+                  type="button"
+                  className={`youtube-podcast-item ${selectedPodcast?.id === episode.id ? 'active' : ''}`}
+                  onClick={() => setSelectedPodcastId(episode.id)}
+                >
+                  <img
+                    src={`https://img.youtube.com/vi/${episode.youtubeId}/hqdefault.jpg`}
+                    alt=""
+                    loading="lazy"
+                  />
+                  <span>
+                    <strong>{episode.title}</strong>
+                    <small>{episode.channel}</small>
+                    <small>{episode.status === 'live' ? 'Ao vivo agora' : episode.duration || 'Podcast gravado'}</small>
+                  </span>
+                </button>
+              ))}
             </div>
           </article>
         </div>
@@ -1742,6 +1807,20 @@ export function App() {
       {installFab}
       {iosModal}
       {liveModal}
+
+      <button
+        className={`audio-floating-btn ${audioEnabled ? 'active' : ''}`}
+        type="button"
+        onClick={() => setAudioEnabled((current) => !current)}
+        aria-label={audioEnabled ? 'Desativar áudio do podcast' : 'Ativar áudio do podcast'}
+      >
+        {audioEnabled
+          ? <Volume2 aria-hidden="true" size={22} strokeWidth={2.2} />
+          : <VolumeX aria-hidden="true" size={22} strokeWidth={2.2} />}
+      </button>
+      {selectedPodcast?.audioUrl && audioEnabled ? (
+        <audio src={selectedPodcast.audioUrl} autoPlay loop />
+      ) : null}
     </main>
   );
 }
