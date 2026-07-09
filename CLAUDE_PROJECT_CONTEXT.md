@@ -706,6 +706,8 @@ const canManage = role === 'admin' || role === 'borrower';
 
 `viewer`:
 - Ve app.
+- NAO ve a aba "Conferencia" (a nav filtra via `visibleTabs`; a aba so
+  aparece para quem gerencia/pode retirar, ou seja `canManage`).
 - Nao pode salvar conferencia.
 - Nao pode marcar checklist.
 - Nao pode retirar.
@@ -1047,37 +1049,48 @@ Regras do estudio:
 - Salvar no banco qual versao das regras foi aceita.
 - Salvar data/hora do aceite e usuario que aceitou.
 
-Modelo de dados recomendado:
+Modelo de dados — IMPLEMENTADO (fonte da verdade: `supabase/studio_booking.sql`):
+
+O esquema real difere da proposta original acima. As colunas espelham
+exatamente o que a Edge Function `submit-booking` insere. Não renomear
+sem ajustar a função.
 
 ```sql
 studio_booking_requests
-  id uuid primary key
+  id uuid primary key default gen_random_uuid()
   requester_id uuid references auth.users(id)
-  requester_name text
+  requester_name text not null
+  requester_rg text
+  requester_cpf text
   requester_email text
-  title text
-  purpose text
-  starts_at timestamptz
-  ends_at timestamptz
-  status text -- requested, approved, rejected, cancelled
-  rules_version text
-  rules_accepted_at timestamptz
+  requester_whatsapp text
+  requester_social text
+  requested_date date            -- <input type=date> 'YYYY-MM-DD'
+  requested_time text            -- <input type=time> 'HH:MM'
+  status text default 'requested' -- requested, approved, rejected, cancelled
+  lgpd_accepted_at timestamptz
   created_at timestamptz
 
 studio_booking_participants
-  id uuid primary key
-  booking_request_id uuid references studio_booking_requests(id)
-  full_name text
-  document text
-  phone text
+  id uuid primary key default gen_random_uuid()
+  booking_request_id uuid references studio_booking_requests(id) on delete cascade
+  full_name text not null
+  rg text
+  cpf text
   email text
-  role_in_recording text
-  organization text
-  image_voice_authorized boolean
+  whatsapp text
+  social text
   created_at timestamptz
 ```
 
-Para reservas criadas por admin diretamente, pode usar a mesma tabela com `status = 'approved'` e criar evento no Google Calendar em seguida.
+A prova jurídica da assinatura vai em tabela separada e imutável
+(`legal_signatures`, ver `supabase/legal_signatures.sql`): hash SHA-256
+do payload canônico + IP + user-agent, carimbados no backend.
+
+Ordem de execução no SQL Editor: `schema.sql` -> `studio_booking.sql`
+-> `legal_signatures.sql` (a última tem FK para a primeira do booking).
+
+Para reservas criadas por admin diretamente, usar a mesma tabela com `status = 'approved'` e criar evento no Google Calendar em seguida.
 
 WhatsApp:
 
