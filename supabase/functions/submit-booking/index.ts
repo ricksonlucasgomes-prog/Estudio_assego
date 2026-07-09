@@ -177,12 +177,33 @@ serve(async (req) => {
         },
       }
 
-      // Aguardamos o envio para garantir entrega ao n8n.
-      await fetch(n8nWebhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(n8nPayload)
-      }).catch(err => console.error("Erro ao notificar n8n:", err))
+      // A notificação ao n8n NÃO pode bloquear a resposta ao app: se o
+      // webhook não responde, o `await` deixava a função (e o botão do
+      // app) pendurado em "Enviando...". Como a reserva + assinatura já
+      // estão gravadas, a notificação é best-effort — fire-and-forget
+      // com timeout, mantida viva por EdgeRuntime.waitUntil.
+      const notify = (async () => {
+        const ctrl = new AbortController()
+        const timer = setTimeout(() => ctrl.abort(), 5000)
+        try {
+          await fetch(n8nWebhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(n8nPayload),
+            signal: ctrl.signal,
+          })
+        } catch (err) {
+          console.error("Erro ao notificar n8n:", err)
+        } finally {
+          clearTimeout(timer)
+        }
+      })()
+
+      // @ts-ignore EdgeRuntime existe no runtime do Supabase.
+      if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
+        // @ts-ignore
+        EdgeRuntime.waitUntil(notify)
+      }
     } else {
       console.warn("Aviso: N8N_WEBHOOK_URL não configurada nas variáveis de ambiente.")
     }

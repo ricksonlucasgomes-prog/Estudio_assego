@@ -898,20 +898,36 @@ export function App() {
         userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
       };
 
-      const response = await fetch(edgeFunctionUrl('submit-booking'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionData.session.access_token}`,
-        },
-        body: JSON.stringify({
-          requester: requesterData,
-          guests: guestsData,
-          booking_details: { date: requesterData.date, time: requesterData.time },
-          signature,
-          approvers: BOOKING_APPROVERS,
-        }),
-      });
+      // Timeout defensivo: se a função demorar demais para responder, o
+      // botão não pode ficar preso em "Enviando..." para sempre.
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 20000);
+
+      let response: Response;
+      try {
+        response = await fetch(edgeFunctionUrl('submit-booking'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionData.session.access_token}`,
+          },
+          body: JSON.stringify({
+            requester: requesterData,
+            guests: guestsData,
+            booking_details: { date: requesterData.date, time: requesterData.time },
+            signature,
+            approvers: BOOKING_APPROVERS,
+          }),
+          signal: controller.signal,
+        });
+      } catch (err: any) {
+        if (err?.name === 'AbortError') {
+          throw new Error('O servidor demorou a responder. Sua solicitação pode ter sido registrada — aguarde e evite reenviar; confirme com a diretoria antes de tentar de novo.');
+        }
+        throw err;
+      } finally {
+        window.clearTimeout(timeout);
+      }
 
       if (!response.ok) {
         const result = await response.json().catch(() => ({}));
