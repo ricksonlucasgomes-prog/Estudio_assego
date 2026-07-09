@@ -1472,8 +1472,8 @@ footer {
 }
 
 /* ===== Variantes de botão ===== */
-.btn-primary { background: var(--accent); color: #fff; }
-.btn-primary:hover { background: #001090; }
+.btn-primary { background: linear-gradient(135deg, #fff140, #ffdf00); color: #06101f; }
+.btn-primary:hover { filter: brightness(1.05); background: linear-gradient(135deg, #fff140, #ffd000); }
 
 .btn-yellow {
   background: linear-gradient(135deg, #fff140, #ffdf00);
