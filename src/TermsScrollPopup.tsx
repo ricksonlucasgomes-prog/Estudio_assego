@@ -4,7 +4,7 @@
 // Reutilizável: recebe o TermDocument (ver src/termsContent.ts) tanto para o
 // termo da Agenda (reserva do estúdio) quanto para o termo de equipamentos.
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { TermDocument } from './termsContent';
 
 type TermsScrollPopupProps = {
@@ -17,7 +17,7 @@ export function TermsScrollPopup({ document: doc, onAccept, onClose }: TermsScro
   const [reachedEnd, setReachedEnd] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  function handleScroll() {
+  function checkScrollable() {
     const el = bodyRef.current;
     if (!el || reachedEnd) return;
     const threshold = 32; // tolerância em px para considerar "chegou ao fim"
@@ -25,6 +25,13 @@ export function TermsScrollPopup({ document: doc, onAccept, onClose }: TermsScro
       setReachedEnd(true);
     }
   }
+
+  // Se o texto já cabe inteiro na tela (não há o que rolar), libera o
+  // botão imediatamente em vez de travar o usuário num scroll que nunca acontece.
+  useEffect(() => {
+    checkScrollable();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc]);
 
   return (
     <div className="terms-popup-overlay" onClick={onClose}>
@@ -38,7 +45,7 @@ export function TermsScrollPopup({ document: doc, onAccept, onClose }: TermsScro
           <button type="button" className="modal-close" aria-label="Fechar" onClick={onClose}>✕</button>
         </div>
 
-        <div className="terms-popup__body" ref={bodyRef} onScroll={handleScroll}>
+        <div className="terms-popup__body" ref={bodyRef} onScroll={checkScrollable}>
           <p className="terms-popup__intro">{doc.intro}</p>
 
           {doc.sections.map((section) => (

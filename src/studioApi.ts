@@ -3,9 +3,11 @@ import { supabase } from './supabase';
 export type Checkout = {
   user: string;
   userId?: string;
+  userEmail?: string;
   ts: number;
   qty: number;
   photo?: string;
+  justification?: string;
 };
 
 export type MediaItem = {
@@ -99,8 +101,8 @@ export async function loadStudio(): Promise<StudioState> {
   try {
     const [checklist, checkouts, observations, conferences, media] = await Promise.all([
       selectOrThrow<Array<{ item_id: string; checked: boolean }>>(supabase.from('studio_checklist').select('item_id, checked')),
-      selectOrThrow<Array<{ item_id: string; user_name: string; user_id: string | null; qty: number; photo: string | null; taken_at: string }>>(
-        supabase.from('studio_checkouts').select('item_id, user_name, user_id, qty, photo, taken_at'),
+      selectOrThrow<Array<{ item_id: string; user_name: string; user_id: string | null; user_email: string | null; qty: number; photo: string | null; justification: string | null; taken_at: string }>>(
+        supabase.from('studio_checkouts').select('item_id, user_name, user_id, user_email, qty, photo, justification, taken_at'),
       ),
       selectOrThrow<Array<{ id: string; author: string; body: string; created_at: string }>>(
         supabase.from('studio_observations').select('id, author, body, created_at').order('created_at', { ascending: false }).limit(80),
@@ -120,8 +122,10 @@ export async function loadStudio(): Promise<StudioState> {
       checkouts: Object.fromEntries((checkouts ?? []).map((item) => [item.item_id, {
         user: item.user_name,
         userId: item.user_id ?? undefined,
+        userEmail: item.user_email ?? undefined,
         qty: item.qty,
         photo: item.photo ?? undefined,
+        justification: item.justification ?? undefined,
         ts: toTs(item.taken_at),
       }])),
       observations: (observations ?? []).map((item) => ({
@@ -179,8 +183,10 @@ export async function upsertCheckout(itemId: string, checkout: Checkout) {
     item_id: itemId,
     user_name: checkout.user,
     user_id: checkout.userId ?? null,
+    user_email: checkout.userEmail ?? null,
     qty: checkout.qty,
     photo: checkout.photo ?? null,
+    justification: checkout.justification ?? null,
     taken_at: new Date(checkout.ts).toISOString(),
   });
   if (error) throw new Error(error.message);
@@ -291,5 +297,41 @@ export async function listBookingRequests(): Promise<BookingRequest[]> {
 export async function updateBookingStatus(id: string, status: BookingStatus) {
   if (!supabase) throw new Error('Banco de dados não configurado.');
   const { error } = await supabase.from('studio_booking_requests').update({ status }).eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+// ---------------------------------------------------------------------
+// Pedido de equipamento por quem não é admin/borrower (RLS restringe
+// aprovar/rejeitar ao aprovador único; ver supabase/equipment_access.sql).
+// ---------------------------------------------------------------------
+
+export type EquipmentRequestStatus = 'requested' | 'approved' | 'rejected';
+
+export type EquipmentRequest = {
+  id: string;
+  requester_name: string;
+  requester_email: string | null;
+  equipment_id: string;
+  equipment_name: string;
+  justification: string;
+  status: EquipmentRequestStatus;
+  created_at: string;
+};
+
+export async function listEquipmentRequests(): Promise<EquipmentRequest[]> {
+  if (!supabase) return [];
+  const rows = await selectOrThrow<EquipmentRequest[]>(
+    supabase
+      .from('studio_equipment_requests')
+      .select('id, requester_name, requester_email, equipment_id, equipment_name, justification, status, created_at')
+      .order('created_at', { ascending: false })
+      .limit(100),
+  );
+  return rows ?? [];
+}
+
+export async function updateEquipmentRequestStatus(id: string, status: EquipmentRequestStatus) {
+  if (!supabase) throw new Error('Banco de dados não configurado.');
+  const { error } = await supabase.from('studio_equipment_requests').update({ status }).eq('id', id);
   if (error) throw new Error(error.message);
 }

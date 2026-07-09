@@ -2,7 +2,7 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 're
 import { Bell, ClipboardCheck, PackageCheck, Video, CalendarDays, Volume2, VolumeX, Camera, LogOut, type LucideIcon } from 'lucide-react';
 import { edgeFunctionUrl, supabase, supabaseConfigured, type Profile, type UserRole } from './supabase';
 import { TermsScrollPopup } from './TermsScrollPopup';
-import { BOOKING_TERMS } from './termsContent';
+import { BOOKING_TERMS, EQUIPMENT_TERMS } from './termsContent';
 import {
   DEFAULT_DRIVE_FOLDER,
   STUDIO_KEY,
@@ -19,6 +19,8 @@ import {
   writeLocalStudio,
   listBookingRequests,
   updateBookingStatus,
+  listEquipmentRequests,
+  updateEquipmentRequestStatus,
   type Checkout,
   type MediaItem,
   type NotificationEvent,
@@ -27,6 +29,8 @@ import {
   type StudioState,
   type BookingRequest,
   type BookingStatus,
+  type EquipmentRequest,
+  type EquipmentRequestStatus,
 } from './studioApi';
 
 type Equipment = {
@@ -115,7 +119,11 @@ const PODCAST_EPISODES: PodcastEpisode[] = [
 const EMAIL_RECIPIENTS = ['ricksonlucasgomes@gmail.com', 'comunicacaoassego@gmail.com', 'P3dacao@gmail.com'];
 // Destinatários da aprovação do agendamento. O texto do Termo de Uso agora
 // vive em src/termsContent.ts e é exibido inline no popup (ver TermsScrollPopup).
-const BOOKING_APPROVERS = ['Lucas Rickson', 'Badu', 'Sergio Vinicius'];
+// Admins oficiais após aprovação manual: Badu, Sérgio Vinicius e Sgt. Tiago
+// Raiz ('Serginho' é só um possível apelido de Sérgio Vinicius, não um
+// quarto usuário). Lucas Rickson é 'developer' (acesso total), não admin,
+// mas continua sendo o aprovador único — ver isLeadApprover.
+const BOOKING_APPROVERS = ['Lucas Rickson', 'Badu', 'Sergio Vinicius', 'Sgt. Tiago Raiz'];
 const PODCAST_NOTICE = 'Toda Quarta-Feira às 19 horas tem podcast ao vivo da ASSEGO com o presidente Subtenente Sérgio';
 const UPLOAD_ENDPOINT = import.meta.env.VITE_UPLOAD_ENDPOINT as string | undefined;
 const ACCESS_REQUEST_ENDPOINT = import.meta.env.VITE_ACCESS_REQUEST_ENDPOINT as string | undefined;
@@ -123,6 +131,7 @@ const GOOGLE_AUTH_ENABLED = import.meta.env.VITE_GOOGLE_AUTH_ENABLED === 'true';
 
 const ROLE_LABEL: Record<UserRole, string> = {
   admin: 'admin',
+  developer: 'desenvolvedor',
   borrower: 'retirada',
   viewer: 'visualização',
 };
@@ -151,8 +160,14 @@ const MAIN_TABS: TabItem[] = [
   { id: 'agenda', label: 'Agenda', icon: CalendarDays },
   { id: 'camera', label: 'Ao Vivo', icon: Video },
   { id: 'conference', label: 'Conferência', icon: ClipboardCheck },
-  { id: 'custody', label: 'Cautela', icon: PackageCheck },
+  { id: 'custody', label: 'Pegar Equipamento do Estúdio', icon: PackageCheck },
 ];
+
+// Único aprovador de solicitações (agendamento e equipamento) — regra de
+// negócio: só Lucas Rickson (role 'developer') aprova/rejeita. Os 3 admins
+// oficiais — Badu, Sérgio Vinicius e Sgt. Tiago Raiz — continuam vendo as
+// listas (RLS de SELECT libera os admins), sem poder de aprovar/rejeitar.
+const LEAD_APPROVER_EMAIL = 'ricksonlucasgomes@gmail.com';
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -296,7 +311,7 @@ export function App() {
   // Estudio / Estados Gerais
   const [pendingTake, setPendingTake] = useState('');
   const [pendingQty, setPendingQty] = useState(1);
-  const [pendingEquipmentPhoto, setPendingEquipmentPhoto] = useState('');
+  const [pendingJustification, setPendingJustification] = useState('');
   const [observationDraft, setObservationDraft] = useState(() => studio.notes);
   const [mediaEquipment, setMediaEquipment] = useState('geral');
   const [mediaTitle, setMediaTitle] = useState('');
@@ -310,8 +325,8 @@ export function App() {
   const [podcastFilter, setPodcastFilter] = useState<'all' | 'live' | 'recorded'>('all');
   const [audioEnabled, setAudioEnabled] = useState(false);
   
-  // 3. Estado inicial da aba agora é 'agenda'
-  const [activeTab, setActiveTab] = useState<MainTab>('agenda');
+  // 3. Estado inicial da aba agora é 'camera' (Ao Vivo)
+  const [activeTab, setActiveTab] = useState<MainTab>('camera');
 
   // 4. Estados da Nova Feature de Agendamento
   const [showBookingModal, setShowBookingModal] = useState(false);
@@ -340,6 +355,27 @@ export function App() {
   const [bookingListBusy, setBookingListBusy] = useState(false);
   const [bookingListError, setBookingListError] = useState('');
   const [bookingActionId, setBookingActionId] = useState('');
+  const [expandedEquipmentRequestId, setExpandedEquipmentRequestId] = useState('');
+
+  // Gate jurídico do fluxo "Pegar Equipamento do Estúdio" (mesmo mecanismo
+  // do agendamento: popup com scroll obrigatório + assinatura digital).
+  const [showEquipmentTermPopup, setShowEquipmentTermPopup] = useState(false);
+  const [equipmentTermAccepted, setEquipmentTermAccepted] = useState(false);
+  const [equipmentSignatureName, setEquipmentSignatureName] = useState('');
+
+  // Solicitação de equipamento por quem não é admin/borrower.
+  const [showEquipmentAccessGate, setShowEquipmentAccessGate] = useState(false);
+  const [showEquipmentRequestForm, setShowEquipmentRequestForm] = useState(false);
+  const [equipmentRequestTarget, setEquipmentRequestTarget] = useState('');
+  const [equipmentRequestJustification, setEquipmentRequestJustification] = useState('');
+  const [equipmentRequestBusy, setEquipmentRequestBusy] = useState(false);
+  const [equipmentRequestInfo, setEquipmentRequestInfo] = useState('');
+
+  // Painel de admin: solicitações de equipamento pedidas por não-admins.
+  const [equipmentRequests, setEquipmentRequests] = useState<EquipmentRequest[]>([]);
+  const [equipmentListBusy, setEquipmentListBusy] = useState(false);
+  const [equipmentListError, setEquipmentListError] = useState('');
+  const [equipmentActionId, setEquipmentActionId] = useState('');
 
   const selectedPodcast = PODCAST_EPISODES.find((episode) => episode.id === selectedPodcastId) ?? PODCAST_EPISODES[0];
   const filteredPodcasts = PODCAST_EPISODES.filter((episode) => {
@@ -348,18 +384,25 @@ export function App() {
   });
 
   const role: UserRole = profile?.role ?? 'viewer';
-  const canManage = role === 'admin' || role === 'borrower';
-  // A aba Conferência só aparece para quem gerencia (admin) ou pode
-  // solicitar retirada de equipamento (borrower). Viewer não a vê.
+  // 'developer' tem acesso total, equivalente a 'admin', em tudo.
+  const isAdmin = role === 'admin' || role === 'developer';
+  const canManage = isAdmin || role === 'borrower';
+  // Só Lucas Rickson aprova/rejeita solicitações (agendamento e
+  // equipamento). Badu, Sérgio Vinicius e Sgt. Tiago Raiz continuam vendo
+  // as listas.
+  const isLeadApprover = isAdmin && userEmail.trim().toLowerCase() === LEAD_APPROVER_EMAIL;
+  // A aba Conferência só aparece para admin. "Pegar Equipamento do
+  // Estúdio" fica visível para todos, mas com o conteúdo bloqueado para
+  // quem não é admin (popup + fluxo de solicitação com justificativa).
   const visibleTabs = useMemo(
-    () => MAIN_TABS.filter((tab) => tab.id !== 'conference' || canManage),
-    [canManage],
+    () => MAIN_TABS.filter((tab) => tab.id !== 'conference' || isAdmin),
+    [isAdmin],
   );
   // Se o papel do usuário for rebaixado enquanto ele está na Conferência,
   // tira ele da aba que deixou de existir para o perfil dele.
   useEffect(() => {
-    if (activeTab === 'conference' && !canManage) setActiveTab('agenda');
-  }, [activeTab, canManage]);
+    if (activeTab === 'conference' && !isAdmin) setActiveTab('agenda');
+  }, [activeTab, isAdmin]);
   const userName = profile?.full_name || (userEmail ? userEmail.split('@')[0] : '');
   const isAuthed = Boolean(userId);
   const driveFolder = studio.driveFolder || DEFAULT_DRIVE_FOLDER;
@@ -377,6 +420,11 @@ export function App() {
     () => bookingRequests.filter((req) => req.status === 'requested').length,
     [bookingRequests],
   );
+  const pendingEquipmentRequestCount = useMemo(
+    () => equipmentRequests.filter((req) => req.status === 'requested').length,
+    [equipmentRequests],
+  );
+  const totalPendingCount = pendingBookingCount + pendingEquipmentRequestCount;
 
   const isIos = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isStandalone = typeof window !== 'undefined'
@@ -668,14 +716,23 @@ export function App() {
     flash();
   }
 
-  function takeItem(id: string, qty: number) {
+  // Gate do termo de equipamento (mesmo mecanismo do agendamento): só
+  // libera "Confirmar retirada" depois de ler até o fim e assinar.
+  const equipmentSignatureReady = equipmentTermAccepted && equipmentSignatureName.trim().length >= 3;
+
+  function takeItem(id: string, qty: number, justification: string) {
     if (!canManage || !isAuthed) return;
-    if (!pendingEquipmentPhoto) {
-      flash('Anexe a foto do equipamento antes de salvar');
+    const trimmedJustification = justification.trim();
+    if (!trimmedJustification) {
+      flash('Informe a justificativa antes de salvar');
+      return;
+    }
+    if (!equipmentSignatureReady) {
+      flash('Leia o termo de uso, aceite e assine antes de confirmar a retirada');
       return;
     }
     const ts = Date.now();
-    const checkout: Checkout = { user: userName, userId, ts, qty, photo: pendingEquipmentPhoto };
+    const checkout: Checkout = { user: userName, userId, userEmail, ts, qty, justification: trimmedJustification };
     setStudio((current) => ({
       ...current,
       checkouts: { ...current.checkouts, [id]: checkout },
@@ -686,7 +743,7 @@ export function App() {
           equipmentId: id,
           equipmentName: equipmentName(id),
           qty,
-          photo: pendingEquipmentPhoto,
+          justification: trimmedJustification,
           checkedOutAt: ts,
         }),
         ...(current.notificationEvents ?? []),
@@ -695,14 +752,16 @@ export function App() {
     persist(() => upsertCheckout(id, checkout));
     setPendingTake('');
     setPendingQty(1);
-    setPendingEquipmentPhoto('');
+    setPendingJustification('');
+    setEquipmentTermAccepted(false);
+    setEquipmentSignatureName('');
     flash('Retirada registrada');
   }
 
   function returnItem(id: string) {
     const checkout = studio.checkouts[id];
     const isOwner = checkout && (checkout.userId ? checkout.userId === userId : checkout.user === userName);
-    if (!canManage || !checkout || (role !== 'admin' && !isOwner)) return;
+    if (!canManage || !checkout || (!isAdmin && !isOwner)) return;
     setStudio((current) => {
       const next = { ...current.checkouts };
       delete next[id];
@@ -818,15 +877,6 @@ export function App() {
     const photo = await resizeAvatar(file);
     setProfilePhotos((current) => ({ ...current, [userId]: photo }));
     flash('Foto de perfil salva');
-    event.target.value = '';
-  }
-
-  async function handleEquipmentPhoto(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const photo = await resizePhoto(file);
-    setPendingEquipmentPhoto(photo);
-    flash('Foto da retirada anexada');
     event.target.value = '';
   }
 
@@ -1098,6 +1148,9 @@ export function App() {
   };
 
   async function decideBooking(id: string, status: BookingStatus) {
+    // Reforço no client: só o aprovador único decide. O RLS também bloqueia
+    // no servidor (booking_req_update_admin usa current_user_is_lead_approver).
+    if (!isLeadApprover) return;
     setBookingActionId(id);
     // Atualização otimista; se falhar, recarrega do servidor.
     setBookingRequests((current) => current.map((req) => (req.id === id ? { ...req, status } : req)));
@@ -1114,7 +1167,7 @@ export function App() {
 
   // Carrega e atualiza as solicitações enquanto um aprovador oficial esta logado.
   useEffect(() => {
-    if (role !== 'admin' || !supabaseConfigured) {
+    if (!isAdmin || !supabaseConfigured) {
       setBookingRequests([]);
       return;
     }
@@ -1123,7 +1176,109 @@ export function App() {
     const timer = window.setInterval(loadBookingRequests, 15000);
     return () => window.clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role, supabaseConfigured]);
+  }, [isAdmin, supabaseConfigured]);
+
+  // ==========================================
+  // PAINEL DE ADMIN: solicitações de equipamento (não-admin pedindo acesso)
+  // ==========================================
+  const loadEquipmentRequests = async () => {
+    if (!supabase) return;
+    setEquipmentListBusy(true);
+    setEquipmentListError('');
+    try {
+      setEquipmentRequests(await listEquipmentRequests());
+    } catch (error: any) {
+      setEquipmentListError(error?.message || 'Não foi possível carregar os pedidos de equipamento.');
+    } finally {
+      setEquipmentListBusy(false);
+    }
+  };
+
+  async function decideEquipmentRequest(id: string, status: EquipmentRequestStatus) {
+    if (!isLeadApprover) return;
+    setEquipmentActionId(id);
+    setEquipmentRequests((current) => current.map((req) => (req.id === id ? { ...req, status } : req)));
+    try {
+      await updateEquipmentRequestStatus(id, status);
+      flash(status === 'approved' ? 'Pedido de equipamento aprovado' : 'Pedido de equipamento rejeitado');
+    } catch (error: any) {
+      flash(error?.message || 'Falha ao atualizar pedido de equipamento');
+      loadEquipmentRequests();
+    } finally {
+      setEquipmentActionId('');
+    }
+  }
+
+  useEffect(() => {
+    if (!isAdmin || !supabaseConfigured) {
+      setEquipmentRequests([]);
+      return;
+    }
+
+    loadEquipmentRequests();
+    const timer = window.setInterval(loadEquipmentRequests, 15000);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, supabaseConfigured]);
+
+  // Usuário sem admin/borrower pedindo equipamento mesmo assim, com
+  // justificativa. Dispara email aos 3 admins via edge function.
+  function openEquipmentRequestForm(equipmentId: string) {
+    setEquipmentRequestTarget(equipmentId);
+    setEquipmentRequestJustification('');
+    setEquipmentRequestInfo('');
+    setEquipmentTermAccepted(false);
+    setEquipmentSignatureName('');
+    setShowEquipmentAccessGate(false);
+    setShowEquipmentRequestForm(true);
+  }
+
+  async function submitEquipmentRequest(event: FormEvent) {
+    event.preventDefault();
+    if (!supabase || !isAuthed || equipmentRequestBusy) return;
+    const justification = equipmentRequestJustification.trim();
+    if (!justification) {
+      setEquipmentRequestInfo('Escreva por que você precisa do equipamento.');
+      return;
+    }
+
+    setEquipmentRequestBusy(true);
+    setEquipmentRequestInfo('');
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error('Sua sessão expirou. Faça login novamente.');
+
+      const response = await fetch(edgeFunctionUrl('request-equipment'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          equipmentId: equipmentRequestTarget,
+          equipmentName: equipmentName(equipmentRequestTarget),
+          justification,
+          requesterName: userName,
+        }),
+      });
+
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        throw new Error(result.error || 'Erro no servidor. Tente novamente mais tarde.');
+      }
+
+      setEquipmentRequestInfo('Pedido enviado! Os admins foram avisados por email.');
+      window.setTimeout(() => {
+        setShowEquipmentRequestForm(false);
+        setEquipmentRequestTarget('');
+        setEquipmentRequestJustification('');
+        setEquipmentTermAccepted(false);
+        setEquipmentSignatureName('');
+      }, 1600);
+    } catch (error: any) {
+      setEquipmentRequestInfo(error?.message || 'Não foi possível enviar o pedido.');
+    } finally {
+      setEquipmentRequestBusy(false);
+    }
+  }
 
 
   const installFab = canShowInstall ? (
@@ -1270,7 +1425,7 @@ export function App() {
             </div>
           </div>
           <div className="session">
-            {role === 'admin' && (
+            {isAdmin && (
               <div className="notif-wrap">
                 <button
                   type="button"
@@ -1279,7 +1434,7 @@ export function App() {
                   onClick={() => setShowNotifications((current) => !current)}
                 >
                   <Bell size={18} strokeWidth={2.2} aria-hidden="true" />
-                  {pendingBookingCount > 0 && <span className="notif-bell__badge">{pendingBookingCount}</span>}
+                  {totalPendingCount > 0 && <span className="notif-bell__badge">{totalPendingCount}</span>}
                 </button>
 
                 {showNotifications && (
@@ -1289,7 +1444,7 @@ export function App() {
                       <div className="notif-panel__head">
                         <div>
                           <strong>Notificações</strong>
-                          <span>Solicitações de agendamento — visível para Lucas, Badu e Sérgio Vinicius.</span>
+                          <span>Solicitações de agendamento — visível para Lucas, Badu, Sérgio Vinicius e Sgt. Tiago Raiz.</span>
                         </div>
                         <button className="btn ghost" type="button" onClick={loadBookingRequests} disabled={bookingListBusy}>
                           {bookingListBusy ? 'Atualizando…' : 'Atualizar'}
@@ -1365,13 +1520,90 @@ export function App() {
                                   )}
 
                                   <div className="booking-item__actions">
-                                    {req.status === 'requested' ? (
-                                      <>
-                                        <button className="btn btn-yellow" type="button" disabled={bookingActionId === req.id} onClick={() => decideBooking(req.id, 'approved')}>Aprovar</button>
-                                        <button className="btn btn-outline" type="button" disabled={bookingActionId === req.id} onClick={() => decideBooking(req.id, 'rejected')}>Rejeitar</button>
-                                      </>
+                                    {isLeadApprover ? (
+                                      req.status === 'requested' ? (
+                                        <>
+                                          <button className="btn btn-yellow" type="button" disabled={bookingActionId === req.id} onClick={() => decideBooking(req.id, 'approved')}>Aprovar</button>
+                                          <button className="btn btn-outline" type="button" disabled={bookingActionId === req.id} onClick={() => decideBooking(req.id, 'rejected')}>Rejeitar</button>
+                                        </>
+                                      ) : (
+                                        <button className="btn ghost" type="button" disabled={bookingActionId === req.id} onClick={() => decideBooking(req.id, 'requested')}>Reabrir</button>
+                                      )
                                     ) : (
-                                      <button className="btn ghost" type="button" disabled={bookingActionId === req.id} onClick={() => decideBooking(req.id, 'requested')}>Reabrir</button>
+                                      <span className="approver-note">Somente Lucas Rickson pode aprovar ou rejeitar.</span>
+                                    )}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="notif-panel__head notif-panel__head--secondary">
+                        <div>
+                          <strong>Pedidos de equipamento</strong>
+                          <span>Solicitações feitas por quem não é admin, com justificativa.</span>
+                        </div>
+                        <button className="btn ghost" type="button" onClick={loadEquipmentRequests} disabled={equipmentListBusy}>
+                          {equipmentListBusy ? 'Atualizando…' : 'Atualizar'}
+                        </button>
+                      </div>
+
+                      {equipmentListError && <p className="out-count">{equipmentListError}</p>}
+                      {!equipmentListBusy && !equipmentListError && equipmentRequests.length === 0 && (
+                        <p className="guest-empty">Nenhum pedido de equipamento por enquanto.</p>
+                      )}
+
+                      <div className="notif-list">
+                        {equipmentRequests.map((req) => {
+                          const expanded = expandedEquipmentRequestId === req.id;
+                          return (
+                            <div className={`booking-item booking-item--${req.status}`} key={req.id}>
+                              <div className="booking-item__head">
+                                <div className="booking-item__who">
+                                  <strong>{req.requester_name}</strong>
+                                  <span className="booking-item__when">{req.equipment_name}</span>
+                                </div>
+                                <div className="booking-item__badges">
+                                  {req.status === 'requested' && <span className="booking-badge booking-badge--new">Nova</span>}
+                                  <span className={`booking-badge booking-badge--${req.status}`}>
+                                    {req.status === 'requested' ? 'Pendente' : req.status === 'approved' ? 'Aprovada' : 'Rejeitada'}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="booking-item__contact">
+                                {req.requester_email && <span>✉ {req.requester_email}</span>}
+                              </div>
+
+                              <button
+                                type="button"
+                                className="btn ghost btn-block booking-item__expand"
+                                onClick={() => setExpandedEquipmentRequestId(expanded ? '' : req.id)}
+                              >
+                                {expanded ? 'Recolher ▲' : 'Expandir ▼'}
+                              </button>
+
+                              {expanded && (
+                                <>
+                                  <div className="booking-item__section">
+                                    <h3>Justificativa</h3>
+                                    <p>{req.justification}</p>
+                                  </div>
+
+                                  <div className="booking-item__actions">
+                                    {isLeadApprover ? (
+                                      req.status === 'requested' ? (
+                                        <>
+                                          <button className="btn btn-yellow" type="button" disabled={equipmentActionId === req.id} onClick={() => decideEquipmentRequest(req.id, 'approved')}>Aprovar</button>
+                                          <button className="btn btn-outline" type="button" disabled={equipmentActionId === req.id} onClick={() => decideEquipmentRequest(req.id, 'rejected')}>Rejeitar</button>
+                                        </>
+                                      ) : (
+                                        <button className="btn ghost" type="button" disabled={equipmentActionId === req.id} onClick={() => decideEquipmentRequest(req.id, 'requested')}>Reabrir</button>
+                                      )
+                                    ) : (
+                                      <span className="approver-note">Somente Lucas Rickson pode aprovar ou rejeitar.</span>
                                     )}
                                   </div>
                                 </>
@@ -1482,7 +1714,7 @@ export function App() {
           <article className="card premium-card">
             <div className="agenda-head">
               <h2>Assego Studio</h2>
-              {role === 'admin' ? (
+              {isAdmin ? (
                 <button className="btn btn-yellow" type="button" onClick={() => setShowBookingModal(true)}>Reservar Estúdio</button>
               ) : (
                 <button className="btn btn-primary" type="button" onClick={() => setShowBookingModal(true)}>Solicitar Agendamento</button>
@@ -1615,33 +1847,14 @@ export function App() {
                         </div>
                       </div>
                       {checkout ? (
-                        <div className="borrow">
+                        <div className="borrow borrow--readonly">
                           <div className="borrow-copy">
                             <strong>Retirado por {checkout.user}</strong>
                             <span>{checkout.qty} unidade(s) - {borrowDueText(checkout)}</span>
                           </div>
-                          {checkout.photo && <img className="equipment-photo" src={checkout.photo} alt={`Foto da retirada de ${item.name}`} />}
-                          <button className="btn small" type="button" onClick={() => returnItem(item.id)}>Devolver</button>
-                        </div>
-                      ) : pendingTake === item.id ? (
-                        <div className="take-form">
-                          <label>
-                            Quantidade
-                            <select value={pendingQty} onChange={(event) => setPendingQty(Number(event.target.value))}>
-                              {Array.from({ length: item.qty }, (_, index) => index + 1).map((qty) => <option key={qty} value={qty}>{qty}</option>)}
-                            </select>
-                          </label>
-                          <label className="equipment-photo-upload">
-                            Foto obrigatória do equipamento
-                            <input type="file" accept="image/*" capture="environment" onChange={handleEquipmentPhoto} />
-                            <span>Tire pelo celular ou envie uma imagem.</span>
-                          </label>
-                          {pendingEquipmentPhoto && <img className="equipment-photo preview" src={pendingEquipmentPhoto} alt="Prévia da foto anexada" />}
-                          <button className="btn small" type="button" onClick={() => takeItem(item.id, pendingQty)} disabled={!pendingEquipmentPhoto}>Salvar retirada</button>
-                          <button className="btn small ghost" type="button" onClick={() => { setPendingTake(''); setPendingEquipmentPhoto(''); }}>Cancelar</button>
                         </div>
                       ) : (
-                        <button className="btn small ghost take-action" type="button" onClick={() => { setPendingTake(item.id); setPendingQty(1); setPendingEquipmentPhoto(''); }} disabled={!canManage}>Pegar</button>
+                        <span className="equipment-status-ok">Disponível</span>
                       )}
                     </div>
                   );
@@ -1649,6 +1862,9 @@ export function App() {
               </div>
             ))}
           </div>
+          <p className="conference-hint">
+            Retirada e devolução de equipamento agora ficam na aba "Pegar Equipamento do Estúdio".
+          </p>
           <div className="notes">
             <label htmlFor="observationText">Observações</label>
             <div className="note-compose">
@@ -1683,69 +1899,275 @@ export function App() {
             </div>
           </div>
         </article>
+
+        <article className="card media-card">
+          <div className="card-head">
+            <h2>Documentação em fotos</h2>
+            <a className="btn ghost" href={driveFolder} target="_blank" rel="noreferrer">Abrir Drive</a>
+          </div>
+          <div className="drive-panel">
+            <div className="drive-fixed">
+              <span>Destino das fotos</span>
+              <strong>Google Drive do Lucas + aviso por email</strong>
+            </div>
+            <label>
+              Equipamento
+              <select value={mediaEquipment} disabled={!canManage} onChange={(event) => setMediaEquipment(event.target.value)}>
+                <option value="geral">Geral do estúdio</option>
+                {ALL_EQUIPMENT.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+            </label>
+            <label>
+              Nome (opcional)
+              <input value={mediaTitle} disabled={!canManage} onChange={(event) => setMediaTitle(event.target.value)} placeholder="Ex: câmera com risco na lente" />
+            </label>
+            <label className="upload-btn">
+              {mediaBusy ? 'Enviando...' : 'Enviar foto'}
+              <input type="file" accept="image/*" capture="environment" disabled={!canManage || mediaBusy} onChange={uploadMediaPhoto} />
+            </label>
+            {!canManage && <span className="upload-locked-note">Envio de fotos disponível só para admin/borrower.</span>}
+          </div>
+          <div className="media-list">
+            {studio.media.length === 0 ? (
+              <p className="empty">Nenhuma foto enviada ainda.</p>
+            ) : studio.media.map((item) => (
+              <article className="media-item" key={item.id}>
+                <div>
+                  <small>{equipmentName(item.equipmentId)}</small>
+                  <h3>{item.title}</h3>
+                </div>
+                {item.photo ? (
+                  <img className="media-photo" src={item.photo} alt={item.title} loading="lazy" />
+                ) : item.url ? (
+                  <a className="btn small" href={item.url} target="_blank" rel="noreferrer">Abrir link</a>
+                ) : null}
+                <div className="media-meta">
+                  <span>{item.addedBy} - {formatDateTime(item.ts)}</span>
+                  {item.syncStatus === 'sent' && <span className="sync ok">Enviado ao Drive/email</span>}
+                  {item.syncStatus === 'error' && <span className="sync err">Falha no envio ao Drive/email</span>}
+                  {(!item.syncStatus || item.syncStatus === 'local') && <span className="sync pending">Aguardando backend</span>}
+                </div>
+                <div className="media-actions">
+                  <button className="btn small ghost" type="button" onClick={() => removeMedia(item.id)} disabled={!canManage}>Remover</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </article>
         </div>
       </section>
 
-
       {/* ============================== */}
-      {/* ABA ANTIGA: CAUTELA            */}
+      {/* ABA: PEGAR EQUIPAMENTO DO ESTÚDIO */}
       {/* ============================== */}
       <section className={`tab-panel ${activeTab === 'custody' ? 'active' : ''}`}>
-      <article className="card media-card">
+      <article className="card">
         <div className="card-head">
-          <h2>Cautela</h2>
-          <a className="btn ghost" href={driveFolder} target="_blank" rel="noreferrer">Abrir Drive</a>
+          <h2>Pegar Equipamento do Estúdio</h2>
         </div>
-        <div className="drive-panel">
-          <div className="drive-fixed">
-            <span>Destino das fotos</span>
-            <strong>Google Drive do Lucas + aviso por email</strong>
+
+        {!isAdmin ? (
+          <div className="equipment-locked">
+            <p><strong>Acesso aos equipamentos é apenas para admins.</strong></p>
+            <p>Se você realmente precisa de um equipamento, explique o motivo e os admins vão avaliar.</p>
+            <button className="btn btn-yellow" type="button" onClick={() => setShowEquipmentAccessGate(true)}>
+              Solicitar mesmo assim
+            </button>
           </div>
-          <label>
-            Equipamento
-            <select value={mediaEquipment} disabled={!canManage} onChange={(event) => setMediaEquipment(event.target.value)}>
-              <option value="geral">Geral do estúdio</option>
-              {ALL_EQUIPMENT.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
-          </label>
-          <label>
-            Nome (opcional)
-            <input value={mediaTitle} disabled={!canManage} onChange={(event) => setMediaTitle(event.target.value)} placeholder="Ex: câmera com risco na lente" />
-          </label>
-          <label className="upload-btn">
-            {mediaBusy ? 'Enviando...' : 'Enviar foto'}
-            <input type="file" accept="image/*" capture="environment" disabled={!canManage || mediaBusy} onChange={uploadMediaPhoto} />
-          </label>
-          {!canManage && <span className="upload-locked-note">Envio de fotos disponível só para admin/borrower.</span>}
-        </div>
-        <div className="media-list">
-          {studio.media.length === 0 ? (
-            <p className="empty">Nenhuma foto enviada ainda.</p>
-          ) : studio.media.map((item) => (
-            <article className="media-item" key={item.id}>
-              <div>
-                <small>{equipmentName(item.equipmentId)}</small>
-                <h3>{item.title}</h3>
+        ) : (
+          <div className="equipment-list equipment-list--custody">
+            {EQUIPMENT.map((group) => (
+              <div key={group.cat}>
+                <h3>{group.cat}</h3>
+                {group.items.map((item) => {
+                  const checkout = studio.checkouts[item.id];
+                  const isOwner = checkout && (checkout.userId ? checkout.userId === userId : checkout.user === userName);
+                  const canReturn = Boolean(checkout) && (isAdmin || isOwner);
+                  return (
+                    <div className={`equipment-item ${checkout ? 'taken' : ''}`} key={item.id}>
+                      <div className="equipment-main">
+                        <span className="equipment-name">{item.name}</span>
+                        <div className="equipment-meta">
+                          <span className="qty">{item.qty} unidades</span>
+                          {item.alert && <span className="flag">{item.alert}</span>}
+                        </div>
+                      </div>
+                      {checkout ? (
+                        <div className="borrow">
+                          <div className="borrow-copy">
+                            <strong>Retirado por {checkout.user}</strong>
+                            <span>{checkout.qty} unidade(s) - {borrowDueText(checkout)}</span>
+                            {checkout.justification && <em className="borrow-justification">"{checkout.justification}"</em>}
+                          </div>
+                          <button className="btn small" type="button" disabled={!canReturn} onClick={() => returnItem(item.id)}>Devolver</button>
+                        </div>
+                      ) : pendingTake === item.id ? (
+                        <div className="take-form">
+                          <label>
+                            Equipamento sendo solicitado
+                            <input value={item.name} disabled readOnly />
+                          </label>
+                          <label>
+                            Quantidade
+                            <select value={pendingQty} onChange={(event) => setPendingQty(Number(event.target.value))}>
+                              {Array.from({ length: item.qty }, (_, index) => index + 1).map((qty) => <option key={qty} value={qty}>{qty}</option>)}
+                            </select>
+                          </label>
+                          <label>
+                            Justificativa (por que está pedindo o uso do equipamento)
+                            <textarea
+                              value={pendingJustification}
+                              onChange={(event) => setPendingJustification(event.target.value)}
+                              placeholder="Ex: gravação do podcast de quarta-feira"
+                            />
+                          </label>
+
+                          <div className={`term-step ${equipmentTermAccepted ? 'done' : ''}`}>
+                            <button type="button" className="btn btn-outline" onClick={() => setShowEquipmentTermPopup(true)}>
+                              {equipmentTermAccepted ? '✓ Termo de uso aceito' : 'Ler termo de uso'}
+                            </button>
+                          </div>
+                          <label>
+                            Assinatura digital (nome completo)
+                            <input
+                              value={equipmentSignatureName}
+                              disabled={!equipmentTermAccepted}
+                              onChange={(event) => setEquipmentSignatureName(event.target.value)}
+                              placeholder="Digite seu nome completo para confirmar"
+                            />
+                          </label>
+
+                          <button
+                            className="btn small"
+                            type="button"
+                            onClick={() => takeItem(item.id, pendingQty, pendingJustification)}
+                            disabled={!pendingJustification.trim() || !equipmentSignatureReady}
+                          >
+                            Confirmar retirada
+                          </button>
+                          <button
+                            className="btn small ghost"
+                            type="button"
+                            onClick={() => {
+                              setPendingTake('');
+                              setPendingJustification('');
+                              setEquipmentTermAccepted(false);
+                              setEquipmentSignatureName('');
+                            }}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          className="btn small ghost take-action"
+                          type="button"
+                          onClick={() => {
+                            setPendingTake(item.id);
+                            setPendingQty(1);
+                            setPendingJustification('');
+                            setEquipmentTermAccepted(false);
+                            setEquipmentSignatureName('');
+                          }}
+                        >
+                          Pegar
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-              {item.photo ? (
-                <img className="media-photo" src={item.photo} alt={item.title} loading="lazy" />
-              ) : item.url ? (
-                <a className="btn small" href={item.url} target="_blank" rel="noreferrer">Abrir link</a>
-              ) : null}
-              <div className="media-meta">
-                <span>{item.addedBy} - {formatDateTime(item.ts)}</span>
-                {item.syncStatus === 'sent' && <span className="sync ok">Enviado ao Drive/email</span>}
-                {item.syncStatus === 'error' && <span className="sync err">Falha no envio ao Drive/email</span>}
-                {(!item.syncStatus || item.syncStatus === 'local') && <span className="sync pending">Aguardando backend</span>}
-              </div>
-              <div className="media-actions">
-                <button className="btn small ghost" type="button" onClick={() => removeMedia(item.id)} disabled={!canManage}>Remover</button>
-              </div>
-            </article>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </article>
       </section>
+
+      {showEquipmentTermPopup && (
+        <TermsScrollPopup
+          document={EQUIPMENT_TERMS}
+          onAccept={() => { setEquipmentTermAccepted(true); setShowEquipmentTermPopup(false); }}
+          onClose={() => setShowEquipmentTermPopup(false)}
+        />
+      )}
+
+      {showEquipmentAccessGate && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setShowEquipmentAccessGate(false)}>
+          <div className="modal-content modal-content--small" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-head">
+              <h3>Acesso restrito</h3>
+              <button className="modal-close" type="button" onClick={() => setShowEquipmentAccessGate(false)} aria-label="Fechar">✕</button>
+            </div>
+            <p>Retirar equipamento do estúdio é uma ação restrita a admins.</p>
+            <p>Você pode pedir liberação para este uso específico explicando o motivo; os admins avaliam e o Lucas aprova ou rejeita.</p>
+            <div className="modal-actions">
+              <button className="btn ghost" type="button" onClick={() => setShowEquipmentAccessGate(false)}>Fechar</button>
+              <button
+                className="btn btn-yellow"
+                type="button"
+                onClick={() => openEquipmentRequestForm(ALL_EQUIPMENT[0]?.id ?? '')}
+              >
+                Solicitar mesmo assim
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEquipmentRequestForm && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setShowEquipmentRequestForm(false)}>
+          <div className="modal-content modal-content--small" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-head">
+              <h3>Pedir equipamento</h3>
+              <button className="modal-close" type="button" onClick={() => setShowEquipmentRequestForm(false)} aria-label="Fechar">✕</button>
+            </div>
+            <form onSubmit={submitEquipmentRequest}>
+              <label>
+                Equipamento
+                <select value={equipmentRequestTarget} onChange={(event) => setEquipmentRequestTarget(event.target.value)}>
+                  {ALL_EQUIPMENT.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                </select>
+              </label>
+              <label>
+                Justificativa (por que você precisa deste equipamento)
+                <textarea
+                  value={equipmentRequestJustification}
+                  onChange={(event) => setEquipmentRequestJustification(event.target.value)}
+                  placeholder="Explique o motivo do pedido"
+                />
+              </label>
+
+              <div className={`term-step ${equipmentTermAccepted ? 'done' : ''}`}>
+                <button type="button" className="btn btn-outline" onClick={() => setShowEquipmentTermPopup(true)}>
+                  {equipmentTermAccepted ? '✓ Termo de uso aceito' : 'Ler termo de uso'}
+                </button>
+              </div>
+              <label>
+                Assinatura digital (nome completo)
+                <input
+                  value={equipmentSignatureName}
+                  disabled={!equipmentTermAccepted}
+                  onChange={(event) => setEquipmentSignatureName(event.target.value)}
+                  placeholder="Digite seu nome completo para confirmar"
+                />
+              </label>
+
+              {equipmentRequestInfo && <p className="out-count">{equipmentRequestInfo}</p>}
+
+              <div className="modal-actions">
+                <button className="btn ghost" type="button" onClick={() => setShowEquipmentRequestForm(false)}>Cancelar</button>
+                <button
+                  className="btn btn-yellow"
+                  type="submit"
+                  disabled={equipmentRequestBusy || !equipmentRequestJustification.trim() || !equipmentSignatureReady}
+                >
+                  {equipmentRequestBusy ? 'Enviando…' : 'Enviar pedido'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <footer className="status-footer">
         <span>{savedNote}</span>
@@ -2001,7 +2423,7 @@ export function App() {
                     </p>
                     <div className="availability-slots-list">
                       {(availabilityByDate[availabilitySelectedDate]?.slots ?? []).map((slot) => (
-                        <button
+                        <button 
                           key={slot.time}
                           type="button"
                           disabled={!slot.available}

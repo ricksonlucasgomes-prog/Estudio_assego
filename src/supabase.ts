@@ -21,7 +21,10 @@ export function edgeFunctionUrl(name: string) {
   return supabaseUrl ? `${supabaseUrl}/functions/v1/${name}` : '';
 }
 
-export type UserRole = 'admin' | 'borrower' | 'viewer';
+// 'developer' tem acesso total (equivalente a admin) — ver App.tsx `isAdmin`.
+// Requer migration no banco antes de qualquer profile usar esse valor
+// (ver supabase/add_developer_role.sql, ainda não executada).
+export type UserRole = 'admin' | 'developer' | 'borrower' | 'viewer';
 
 export type Profile = {
   id: string;

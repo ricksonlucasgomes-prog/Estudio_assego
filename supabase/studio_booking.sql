@@ -7,6 +7,12 @@
 --   2) studio_booking.sql  (ESTE ARQUIVO)
 --   3) legal_signatures.sql (referencia studio_booking_requests via FK)
 --
+-- current_user_is_booking_approver() (abaixo) já refere-se a profiles.role
+-- = 'developer'. Esse valor só é aceito pela coluna depois que
+-- supabase/add_developer_role.sql rodar (ainda pendente de confirmação do
+-- Lucas) — até lá, nenhum profile consegue ter role = 'developer' mesmo,
+-- então a cláusula fica inofensiva (nunca casa com nada).
+--
 -- As colunas abaixo espelham EXATAMENTE o que a Edge Function
 -- `submit-booking` insere. Não renomear sem ajustar a função.
 -- Reexecutável (create if not exists / drop policy if exists).
@@ -60,7 +66,17 @@ alter table public.studio_booking_requests enable row level security;
 alter table public.studio_booking_participants enable row level security;
 
 -- Aprovadores oficiais que podem ver dados pessoais de agendamento no app.
--- Mantemos role = admin como requisito e restringimos aos nomes aprovados.
+--
+-- Admins oficiais após aprovação manual (ninguém aqui é criado
+-- automaticamente — cada um precisa se cadastrar no app primeiro; só depois
+-- alguém promove profiles.role = 'admin' manualmente no SQL Editor):
+--   Badu, Sérgio Vinicius, Sgt. Tiago Raiz.
+-- 'Serginho' é tratado só como possível apelido de Sérgio Vinicius, não é
+-- um quarto usuário/admin separado.
+-- Lucas Rickson não é mais 'admin', é 'developer' (acesso total — ver
+-- supabase/add_developer_role.sql, que ainda precisa ser executada para
+-- o CHECK da coluna aceitar esse valor). Ele passa aqui pelo role check,
+-- sem precisar bater nome, já que só ele pode ter esse papel.
 create or replace function public.current_user_is_booking_approver()
 returns boolean
 language sql
@@ -72,13 +88,19 @@ as $$
     select 1
     from public.profiles p
     where p.id = auth.uid()
-      and p.role = 'admin'
       and (
-        lower(p.full_name) like 'lucas%'
-        or lower(p.full_name) = 'badu'
-        or lower(p.full_name) like 'sergio%'
-        or lower(p.full_name) like 'sérgio%'
-        or lower(p.full_name) = 'serginho'
+        p.role = 'developer'
+        or (
+          p.role = 'admin'
+          and (
+            lower(p.full_name) = 'badu'
+            or lower(p.full_name) like 'sergio%'
+            or lower(p.full_name) like 'sérgio%'
+            or lower(p.full_name) = 'serginho'
+            or lower(p.full_name) like 'tiago%'
+            or lower(p.full_name) like '%tiago raiz%'
+          )
+        )
       )
   );
 $$;

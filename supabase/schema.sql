@@ -136,6 +136,14 @@ for select to authenticated using (true);
 create policy "audit_insert_authenticated" on public.audit_logs
 for insert to authenticated with check (actor_id = auth.uid());
 
+-- NOTA (regra de admins oficiais): ninguém vira admin/developer sozinho ao
+-- se cadastrar — o trigger abaixo só reconhece o e-mail do Lucas (que já é
+-- o dono/desenvolvedor do sistema) e ainda assim insere como 'viewer' até
+-- a migration supabase/add_developer_role.sql rodar (ela é quem ensina o
+-- CHECK da coluna a aceitar 'developer' — sem ela, um `insert` com
+-- role = 'developer' falha). Badu, Sérgio Vinicius e Sgt. Tiago Raiz
+-- SEMPRE entram como 'viewer' e só viram 'admin' depois de aprovação
+-- manual (update direto no SQL Editor, ver bloco abaixo).
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -147,10 +155,7 @@ begin
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
-    case
-      when lower(new.email) = 'ricksonlucasgomes@gmail.com' then 'admin'
-      else 'viewer'
-    end
+    'viewer'
   )
   on conflict (id) do nothing;
   return new;
@@ -162,16 +167,16 @@ create trigger on_auth_user_created
 after insert on auth.users
 for each row execute function public.handle_new_user();
 
--- Depois que os usuarios criarem login, rode updates como estes:
--- update public.profiles set role = 'admin', full_name = 'Lucas' where id = '<uuid_do_lucas>';
--- update public.profiles set role = 'borrower', full_name = 'Sergio Vinicius' where id = '<uuid_do_sergio>';
--- update public.profiles set role = 'borrower', full_name = 'Badu' where id = '<uuid_do_badu>';
-
-update public.profiles p
-set role = 'admin', full_name = 'Lucas Rickson'
-from auth.users u
-where p.id = u.id
-  and lower(u.email) = 'ricksonlucasgomes@gmail.com';
+-- Depois que os usuarios criarem login, promova manualmente com updates
+-- como estes (ninguém é promovido automaticamente):
+-- update public.profiles set role = 'admin', full_name = 'Badu' where id = '<uuid_do_badu>';
+-- update public.profiles set role = 'admin', full_name = 'Sergio Vinicius' where id = '<uuid_do_sergio>';
+-- update public.profiles set role = 'admin', full_name = 'Sgt. Tiago Raiz' where id = '<uuid_do_tiago>';
+--
+-- O Lucas Rickson é 'developer' (acesso total), não 'admin'. Só rode a
+-- linha abaixo DEPOIS de supabase/add_developer_role.sql (senão o CHECK
+-- da coluna rejeita 'developer'):
+-- update public.profiles set role = 'developer', full_name = 'Lucas Rickson' where lower((select email from auth.users where id = profiles.id)) = 'ricksonlucasgomes@gmail.com';
 
 -- Dados compartilhados da tela atual do estudio.
 -- Mantem o modelo simples do App.tsx e substitui o localStorage entre aparelhos.

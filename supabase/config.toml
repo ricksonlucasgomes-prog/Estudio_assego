@@ -15,3 +15,19 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/studio-availability/deno.json"
 entrypoint = "./functions/studio-availability/index.ts"
+
+[functions.request-equipment]
+enabled = true
+verify_jwt = false
+import_map = "./functions/request-equipment/deno.json"
+entrypoint = "./functions/request-equipment/index.ts"
+
+# Roda 1x por dia (13h UTC = 10h em Brasilia) verificando atraso de 7 dias.
+# Requer pg_cron + pg_net habilitados no projeto (Database > Extensions) e o
+# schedule aplicado via supabase/cron_overdue_equipment.sql (o CLI ainda nao
+# tem `schedule =` estavel para todo runtime; por isso o cron fica no SQL).
+[functions.check-overdue-equipment]
+enabled = true
+verify_jwt = false
+import_map = "./functions/check-overdue-equipment/deno.json"
+entrypoint = "./functions/check-overdue-equipment/index.ts"

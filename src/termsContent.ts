@@ -153,3 +153,61 @@ export const BOOKING_TERMS: TermDocument = {
   declaration:
     'Declaro que li, compreendi e aceito o presente Termo de Uso e Responsabilidade do Estúdio de Gravação — Assego Studio, responsabilizando-me pelas informações prestadas e pela conduta dos convidados/participantes vinculados à minha solicitação de reserva. O aceite eletrônico é registrado automaticamente pelo app Assego Studio (usuário autenticado, data/hora e IP quando disponível).',
 };
+
+// TEXTO PROVISÓRIO — PRECISA DE REVISÃO DO LUCAS.
+// Termo de Uso e Responsabilidade para Retirada de Equipamentos do Estúdio
+// (usado no fluxo "Pegar Equipamento do Estúdio"). Ainda não foi enviado o
+// texto oficial; este rascunho segue as regras já combinadas (prazo de 7
+// dias corridos, responsabilidade por danos/perdas, uso exclusivo para a
+// finalidade informada na justificativa, bloqueio em caso de atraso/dano).
+export const EQUIPMENT_TERMS: TermDocument = {
+  title: 'Termo de Uso e Responsabilidade para Retirada de Equipamentos',
+  subtitle: 'Assego Studio — ASSEGO PM & BM — Versão 1.0 (provisória)',
+  intro:
+    'Leia com atenção antes de solicitar a retirada de qualquer equipamento do estúdio. O envio da solicitação e a assinatura digital significam concordância com este Termo e responsabilidade integral pelo equipamento retirado.',
+  sections: [
+    {
+      heading: '1. Objeto',
+      paragraphs: [
+        'Este Termo regula a retirada temporária de equipamentos do Assego Studio por pessoas autorizadas, para uso relacionado às atividades da ASSEGO PM & BM.',
+      ],
+    },
+    {
+      heading: '2. Prazo de devolução',
+      paragraphs: [
+        'O equipamento retirado deverá ser devolvido em até 7 (sete) dias corridos, contados a partir da data e hora da retirada registrada no app.',
+        'Vencido o prazo sem devolução, o sistema envia aviso automático diário ao responsável pela retirada e ao administrador (Lucas Rickson), informando o atraso.',
+        'A não devolução após aviso poderá ser escalada à presidência da ASSEGO para as providências cabíveis.',
+      ],
+    },
+    {
+      heading: '3. Responsabilidade pelo equipamento',
+      paragraphs: [
+        'O solicitante é integralmente responsável pela guarda, conservação e uso adequado do equipamento retirado, desde a retirada até a devolução efetiva.',
+        'Danos, perdas, extravios, furto ou mau uso do equipamento serão de responsabilidade do solicitante, podendo a ASSEGO exigir ressarcimento e adotar medidas administrativas cabíveis.',
+      ],
+    },
+    {
+      heading: '4. Finalidade de uso',
+      paragraphs: [
+        'O equipamento retirado somente poderá ser utilizado para a finalidade informada na justificativa apresentada no momento da solicitação.',
+        'Uso para finalidade distinta da informada, ou empréstimo a terceiros não autorizados, é vedado e poderá gerar suspensão de novas retiradas.',
+      ],
+    },
+    {
+      heading: '5. Bloqueio de novas retiradas',
+      paragraphs: [
+        'Em caso de atraso na devolução, dano ao equipamento ou descumprimento deste Termo, a administração poderá bloquear novas solicitações de retirada do responsável até a regularização da pendência.',
+      ],
+    },
+    {
+      heading: '6. Assinatura digital e aceite eletrônico',
+      paragraphs: [
+        'O aceite deste Termo ocorre por meio eletrônico no app Assego Studio, mediante leitura integral, marcação de concordância e assinatura digital pelo nome completo.',
+        'O app registra data, hora, usuário autenticado e demais dados técnicos do aceite para fins de segurança e comprovação administrativa.',
+      ],
+    },
+  ],
+  declaration:
+    'Declaro que li, compreendi e aceito o presente Termo de Uso e Responsabilidade para Retirada de Equipamentos do Assego Studio, comprometendo-me a devolver o equipamento em até 7 dias corridos e a responder por danos, perdas ou uso indevido.',
+};
