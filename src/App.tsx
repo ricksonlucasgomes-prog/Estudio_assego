@@ -1,5 +1,5 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, ClipboardCheck, PackageCheck, Video, CalendarDays, Camera, LogOut, ChevronLeft, ChevronRight, type LucideIcon } from 'lucide-react';
+import { Bell, ClipboardCheck, PackageCheck, Video, CalendarDays, Camera, LogOut, ChevronLeft, ChevronRight, Clock3, Radio, ShieldCheck, Package, ArrowRight, Activity, type LucideIcon } from 'lucide-react';
 import { edgeFunctionUrl, supabase, supabaseConfigured, type Profile, type UserRole } from './supabase';
 import { TermsScrollPopup } from './TermsScrollPopup';
 import { BOOKING_TERMS, EQUIPMENT_TERMS } from './termsContent';
@@ -409,6 +409,12 @@ export function App() {
     [equipmentRequests],
   );
   const totalPendingCount = pendingBookingCount + pendingEquipmentRequestCount;
+  const nextBooking = useMemo(
+    () => bookingRequests
+      .filter((request) => request.status === 'approved' && request.requested_date)
+      .sort((a, b) => `${a.requested_date ?? ''}T${a.requested_time ?? ''}`.localeCompare(`${b.requested_date ?? ''}T${b.requested_time ?? ''}`))[0],
+    [bookingRequests],
+  );
 
   const isIos = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isStandalone = typeof window !== 'undefined'
@@ -1675,6 +1681,79 @@ export function App() {
         {/* NOVA ABA: AGENDA               */}
         {/* ============================== */}
         <div className={`tab-panel ${activeTab === 'agenda' ? 'active' : ''}`}>
+          <div className="dashboard-shell">
+            <article className="dashboard-hero">
+              <div className="dashboard-hero__copy">
+                <p className="eyebrow">Painel operacional</p>
+                <h2>Seu estúdio em uma única visão.</h2>
+                <p>Organize reservas, gravações, conferências e equipamentos com segurança.</p>
+              </div>
+              <div className="dashboard-hero__actions">
+                <button className="btn btn-yellow" type="button" onClick={() => setShowBookingModal(true)}>
+                  <CalendarDays size={18} aria-hidden="true" />
+                  {isAdmin ? 'Reservar estúdio' : 'Solicitar agendamento'}
+                </button>
+                <span><Activity size={15} aria-hidden="true" /> Sistema operacional</span>
+              </div>
+            </article>
+
+            <div className="dashboard-grid">
+              <article className="dashboard-card dashboard-card--schedule">
+                <div className="dashboard-card__head">
+                  <span className="dashboard-card__icon"><Clock3 size={19} aria-hidden="true" /></span>
+                  <span className="status-chip status-chip--online">Agenda</span>
+                </div>
+                <div className="dashboard-card__body">
+                  <p className="dashboard-card__label">Próxima gravação</p>
+                  {nextBooking ? (
+                    <>
+                      <strong>{formatBookingWhen(nextBooking.requested_date, nextBooking.requested_time)}</strong>
+                      <span>{nextBooking.requester_name}</span>
+                    </>
+                  ) : (
+                    <>
+                      <strong>Agenda disponível</strong>
+                      <span>Nenhuma gravação aprovada no momento.</span>
+                    </>
+                  )}
+                </div>
+                <button type="button" className="dashboard-link" onClick={() => setShowBookingModal(true)}>
+                  Consultar horários <ArrowRight size={16} aria-hidden="true" />
+                </button>
+              </article>
+
+              <article className="dashboard-card dashboard-card--status">
+                <div className="dashboard-card__head">
+                  <span className="dashboard-card__icon"><ShieldCheck size={19} aria-hidden="true" /></span>
+                  <span className="status-chip">Operação</span>
+                </div>
+                <div className="studio-health">
+                  <strong>{outsideCount === 0 ? 'Estúdio pronto' : 'Atenção necessária'}</strong>
+                  <span>{ALL_EQUIPMENT.length - outsideCount} de {ALL_EQUIPMENT.length} itens no estúdio</span>
+                  <div className="studio-health__bar"><span style={{ width: `${((ALL_EQUIPMENT.length - outsideCount) / ALL_EQUIPMENT.length) * 100}%` }} /></div>
+                </div>
+                <div className="dashboard-mini-stats">
+                  <span><b>{checkedCount}</b> conferidos</span>
+                  <span><b>{totalPendingCount}</b> pendências</span>
+                </div>
+              </article>
+
+              <article className="dashboard-card dashboard-card--actions">
+                <div className="dashboard-card__head">
+                  <div>
+                    <p className="dashboard-card__label">Acesso rápido</p>
+                    <strong>O que você quer fazer?</strong>
+                  </div>
+                </div>
+                <div className="quick-actions">
+                  <button type="button" onClick={() => setShowBookingModal(true)}><CalendarDays size={20} aria-hidden="true" /><span>Reservar<small>Escolher horário</small></span></button>
+                  <button type="button" onClick={() => setActiveTab('camera')}><Radio size={20} aria-hidden="true" /><span>Ao Vivo<small>Ver transmissão</small></span></button>
+                  {isAdmin && <button type="button" onClick={() => setActiveTab('conference')}><ClipboardCheck size={20} aria-hidden="true" /><span>Conferir<small>Validar estúdio</small></span></button>}
+                  <button type="button" onClick={() => setActiveTab('custody')}><Package size={20} aria-hidden="true" /><span>Equipamentos<small>Retirada e cautela</small></span></button>
+                </div>
+              </article>
+            </div>
+          </div>
           <article className="card premium-card">
             <div className="agenda-head">
               <h2>Assego Studio</h2>
@@ -1823,7 +1902,6 @@ export function App() {
         <article className="card media-card">
           <div className="card-head">
             <h2>Documentação em fotos</h2>
-            <a className="btn ghost" href={driveFolder} target="_blank" rel="noreferrer">Abrir Drive</a>
           </div>
           <div className="drive-panel">
             <div className="drive-fixed">
