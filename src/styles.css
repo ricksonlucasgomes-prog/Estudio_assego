@@ -1574,10 +1574,6 @@ footer {
     justify-content: stretch;
   }
 
-  .session {
-    width: 100%;
-  }
-
   .btn,
   .photo-btn {
     flex: 1;
