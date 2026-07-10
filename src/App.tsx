@@ -288,7 +288,10 @@ export function App() {
   const [mediaEquipment, setMediaEquipment] = useState('geral');
   const [mediaTitle, setMediaTitle] = useState('');
   const [mediaBusy, setMediaBusy] = useState(false);
-  const [savedNote, setSavedNote] = useState('Conferência salva automaticamente');
+  // Toast de confirmação: vazio = escondido. É preenchido por flash() quando
+  // algo é salvo e some sozinho depois de alguns segundos.
+  const [savedNote, setSavedNote] = useState('');
+  const flashTimer = useRef<number | undefined>(undefined);
   const [accessRequestBusy, setAccessRequestBusy] = useState(false);
   const [accessRequestInfo, setAccessRequestInfo] = useState('');
   // Papel que o próprio usuário está pedindo em "Pedir liberação". Quem
@@ -541,7 +544,8 @@ export function App() {
 
   function flash(message = 'Salvo') {
     setSavedNote(message);
-    window.setTimeout(() => setSavedNote('Conferência salva automaticamente'), 1400);
+    if (flashTimer.current) window.clearTimeout(flashTimer.current);
+    flashTimer.current = window.setTimeout(() => setSavedNote(''), 2200);
   }
 
   function persist(action: () => Promise<void>) {
@@ -2153,9 +2157,19 @@ export function App() {
         </div>
       )}
 
-      <footer className="status-footer">
-        <span>{savedNote}</span>
-      </footer>
+      {savedNote && (
+        <div
+          className="toast"
+          role="status"
+          aria-live="polite"
+          onClick={() => {
+            if (flashTimer.current) window.clearTimeout(flashTimer.current);
+            setSavedNote('');
+          }}
+        >
+          <span>{savedNote}</span>
+        </div>
+      )}
 
       {/* ============================== */}
       {/* RENDERIZAÇÃO DO MODAL          */}

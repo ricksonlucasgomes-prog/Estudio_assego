@@ -68,7 +68,8 @@ a {
 .wrap {
   width: min(1240px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 24px 0 40px;
+  /* padding-top acompanha a safe-area do iPhone (notch/status bar translúcida). */
+  padding: calc(24px + env(safe-area-inset-top)) 0 40px;
 }
 
 .login-screen {
@@ -621,7 +622,7 @@ footer {
 
 .btn {
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: 6px;
   background: var(--accent);
   color: #fff;
   cursor: pointer;
@@ -1263,9 +1264,40 @@ footer {
   color: var(--muted);
 }
 
-.status-footer {
-  margin-top: 18px;
-  color: var(--muted);
+/* Toast de confirmação: aparece rápido quando algo é salvo e some sozinho.
+   Fixo na base da tela, respeitando a safe-area do iPhone (home indicator). */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  z-index: 240;
+  max-width: min(420px, calc(100% - 32px));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px;
+  border: 1px solid rgba(255, 223, 0, .28);
+  border-radius: 10px;
+  background: rgba(9, 18, 35, .96);
+  color: #f4f7fc;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, .5);
+  backdrop-filter: blur(14px);
+  transform: translateX(-50%);
+  animation: toast-in .2s ease both;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
 }
 
 .bottom-tabs {
@@ -1564,7 +1596,7 @@ footer {
 @media (max-width: 620px) {
   .wrap {
     width: min(100% - 20px, 1240px);
-    padding: 10px 0 32px;
+    padding: calc(10px + env(safe-area-inset-top)) 0 32px;
   }
 
   .topbar,
@@ -3011,7 +3043,7 @@ body::before {
 
 .btn {
   min-height: 40px;
-  border-radius: 11px;
+  border-radius: 6px;
   font-weight: 800;
 }
 
@@ -3029,17 +3061,6 @@ body::before {
   color: #c5cede;
 }
 
-.status-footer {
-  min-height: 54px;
-  display: flex;
-  align-items: center;
-  margin-top: min(34vh, 310px);
-  padding: 0 18px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: rgba(7, 16, 31, .78);
-  color: #aac8ff;
-}
 
 .live-empty-card {
   min-height: 310px;
@@ -3170,16 +3191,12 @@ body::before {
     margin: 0 auto;
     padding: 26px 16px 40px;
   }
-
-  .status-footer {
-    margin-top: min(36vh, 320px);
-  }
 }
 
 @media (max-width: 760px) {
   .wrap {
     width: min(100% - 20px, 720px);
-    padding-top: 14px;
+    padding-top: calc(14px + env(safe-area-inset-top));
   }
 
   .assego-marquee {
@@ -3210,11 +3227,6 @@ body::before {
 
   .agenda-head .btn {
     width: 100%;
-  }
-
-  .status-footer {
-    margin-top: 28px;
-    margin-bottom: 90px;
   }
 
   .login-card {
@@ -3612,7 +3624,7 @@ body::before {
   gap: 11px;
   padding: 12px;
   border: 1px solid rgba(67, 89, 130, .38);
-  border-radius: 14px;
+  border-radius: 8px;
   background: rgba(255,255,255,.025);
   color: #a8c4ff;
   cursor: pointer;
@@ -3645,12 +3657,6 @@ body::before {
   text-overflow: ellipsis;
 }
 
-.status-footer {
-  min-height: 46px;
-  margin-top: 20px;
-  margin-bottom: 0;
-  background: rgba(8, 17, 33, .78);
-}
 
 .equipment-list {
   display: grid;
@@ -3827,10 +3833,6 @@ body::before {
   .live-empty-card {
     min-height: 430px;
     padding: 26px 18px;
-  }
-
-  .status-footer {
-    margin: 12px 0 0;
   }
 }
 
