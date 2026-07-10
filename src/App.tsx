@@ -1631,8 +1631,8 @@ export function App() {
           </div>
         </div>
 
-        {/* Resumo operacional visível somente para admin/developer. */}
-        {isAdmin && (
+        {/* Resumo operacional: só para admin/developer e apenas na aba Conferência. */}
+        {isAdmin && activeTab === 'conference' && (
           <div className="brand-metrics" aria-label="Resumo do estúdio">
             <span><strong>{ALL_EQUIPMENT.length}</strong> itens</span>
             <span><strong>{checkedCount}</strong> conferidos</span>
