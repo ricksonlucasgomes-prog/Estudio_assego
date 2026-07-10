@@ -2674,171 +2674,553 @@ footer {
 }
 
 
-/* ============================== */
-/* ABA AO VIVO — estilo YouTube mobile (MVP) */
-/* ============================== */
-.youtube-live-screen {
-  display: grid;
+/* =====================================================================
+   REDESIGN GLOBAL - painel operacional ASSEGO
+   Esta camada final unifica login, dashboard, cards, formularios e modais.
+   ===================================================================== */
+:root {
+  --bg: #030817;
+  --panel: #07101f;
+  --panel-2: #0a1324;
+  --panel-3: #10192a;
+  --sidebar: #101625;
+  --line: #243149;
+  --line-soft: rgba(147, 166, 198, .15);
+  --accent: #00127a;
+  --accent-bright: #ffdf00;
+  --gold-dim: #d6bc20;
+  --text: #f8fafc;
+  --muted: #9ca9bf;
+  --muted-deep: #687892;
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+}
+
+html {
+  min-height: 100%;
+  background: var(--bg);
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 72% -20%, rgba(0, 27, 135, .15), transparent 32rem),
+    var(--bg);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(rgba(255,255,255,.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.012) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(to bottom, black, transparent 70%);
+}
+
+.wrap {
+  position: relative;
+  width: min(1280px, calc(100% - 36px));
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 26px 0 116px;
+}
+
+.login-screen {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  padding: 32px 20px;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(0, 24, 126, .32), transparent 28rem),
+    linear-gradient(135deg, #020713 0%, #040a19 60%, #071022 100%);
+}
+
+.login-card {
+  position: relative;
+  width: min(420px, 100%);
+  padding: 34px;
   gap: 14px;
-  padding-bottom: 96px;
+  border: 1px solid #263550;
+  border-radius: 20px;
+  background: rgba(7, 16, 35, .94);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .42), inset 0 1px 0 rgba(255,255,255,.035);
+  backdrop-filter: blur(20px);
 }
 
-.youtube-player-shell {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: #000;
-  aspect-ratio: 16 / 9;
-  box-shadow: 0 18px 42px rgba(var(--black-rgb), .32);
+.login-card .logo-chip {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 2px;
+  border-radius: 16px;
 }
 
-.youtube-player-shell iframe {
-  width: 100%;
-  height: 100%;
-  border: 0;
-  display: block;
+.login-card h1 {
+  font-size: clamp(28px, 7vw, 38px);
+  letter-spacing: -.035em;
+  text-transform: none;
 }
 
-.youtube-current-info {
-  display: grid;
-  gap: 5px;
-  padding: 0 4px;
-}
-
-.youtube-current-info h2 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(18px, 4vw, 26px);
-  line-height: 1.15;
-}
-
-.youtube-current-info p,
-.youtube-current-info span {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.35;
-}
-
-.youtube-filter-row {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 4px 0 2px;
-  scrollbar-width: none;
-}
-
-.youtube-filter-row::-webkit-scrollbar {
-  display: none;
-}
-
-.youtube-filter-row button {
-  flex: 0 0 auto;
-  border: 0;
-  border-radius: var(--radius-pill);
-  padding: 10px 16px;
-  background: rgba(var(--white-rgb), .08);
-  color: var(--text);
+.login-card > .eyebrow {
+  color: var(--accent-bright);
   font-weight: 800;
-  cursor: pointer;
 }
 
-.youtube-filter-row button.active {
-  background: var(--text);
-  color: var(--bg);
+.login-card label {
+  color: #b8c4d7;
+  font-weight: 700;
 }
 
-.youtube-podcast-list {
-  display: grid;
-  gap: 14px;
-}
-
-.youtube-podcast-item {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 156px minmax(0, 1fr);
-  gap: 12px;
-  align-items: start;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  text-align: left;
-  cursor: pointer;
-}
-
-.youtube-podcast-item img {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
+.login-card input,
+.drive-panel input,
+.drive-panel select,
+.take-form input,
+.take-form select,
+.take-form textarea,
+.notes textarea,
+.modal-content input,
+.modal-content select,
+.modal-content textarea {
+  min-height: 46px;
+  border: 1px solid #2a3851;
   border-radius: 12px;
-  background: #000;
+  background: #050b18;
+  color: var(--text);
+  outline: none;
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
 }
 
-.youtube-podcast-item span {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
+.login-card input:focus,
+.drive-panel input:focus,
+.drive-panel select:focus,
+.take-form input:focus,
+.take-form select:focus,
+.take-form textarea:focus,
+.notes textarea:focus,
+.modal-content input:focus,
+.modal-content select:focus,
+.modal-content textarea:focus {
+  border-color: rgba(255, 223, 0, .72);
+  box-shadow: 0 0 0 3px rgba(255, 223, 0, .1);
 }
 
-.youtube-podcast-item strong {
-  font-size: 15px;
-  line-height: 1.25;
+.auth-tabs {
+  padding: 5px;
+  border: 1px solid #26334a;
+  border-radius: 13px;
+  background: #030815;
 }
 
-.youtube-podcast-item small {
+.auth-tabs button {
+  min-height: 38px;
+  border-radius: 9px;
   color: var(--muted);
-  font-size: 12px;
 }
 
-.youtube-podcast-item.active strong {
+.auth-tabs button.active {
+  background: #f5f7fb;
+  color: #07101f;
+  box-shadow: 0 4px 16px rgba(0,0,0,.2);
+}
+
+.login-card .btn-yellow {
+  min-height: 46px;
+  margin-top: 2px;
+  font-size: 14px;
+  letter-spacing: .04em;
+}
+
+.google-btn {
+  min-height: 44px;
+  border-color: #34415a;
+  background: #e4e7ec;
+  color: #182235;
+}
+
+.login-foot {
+  color: var(--gold-dim);
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.assego-marquee {
+  margin-bottom: 22px;
+  border-color: var(--line-soft);
+  border-radius: 999px;
+  background: rgba(12, 20, 35, .88);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+}
+
+.assego-marquee__track {
+  padding: 8px 0;
+  gap: 70px;
+}
+
+.assego-marquee__item {
+  color: var(--gold-dim);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.brand-hero {
+  margin-bottom: 24px;
+  padding: 0;
+  background: transparent;
+}
+
+.brand-top {
+  min-height: 56px;
+}
+
+.brand-id .logo-chip {
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+}
+
+.brand-copy .eyebrow {
+  font-size: 9px;
   color: var(--accent-bright);
 }
 
-.audio-floating-btn {
-  position: fixed;
-  right: 18px;
-  bottom: calc(92px + env(safe-area-inset-bottom));
-  z-index: 55;
-  width: 52px;
-  height: 52px;
-  border: 1px solid rgba(var(--white-rgb), .16);
-  border-radius: 999px;
-  background: rgba(5, 10, 24, .92);
-  color: var(--text);
-  font-size: 22px;
-  cursor: pointer;
-  box-shadow: 0 16px 34px rgba(var(--black-rgb), .38);
-  backdrop-filter: blur(14px);
+.brand-copy h1 {
+  margin-top: 2px;
+  font-size: clamp(20px, 3vw, 28px);
+  letter-spacing: -.035em;
 }
 
-.audio-floating-btn.active {
-  background: linear-gradient(135deg, var(--accent-bright), #ffd45c);
-  color: #081324;
+.notif-bell,
+.avatar-btn {
+  border-color: #26334a;
+  background: #050b18;
+  box-shadow: none;
 }
 
-/*
-  Nota de design: este preenchimento dourado sólido é provisório (MVP).
-  No redesign, o estado ativo deve seguir o mesmo tratamento minimalista
-  já aplicado em .bottom-tabs (cor no ícone + indicador sutil, sem bloco cheio).
-*/
+.brand-metrics {
+  margin-top: 22px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(9, 18, 34, .82);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+}
 
-@media (max-width: 620px) {
-  .youtube-live-screen { gap: 12px; }
-  .youtube-player-shell {
-    margin-left: -10px;
-    margin-right: -10px;
-    border-radius: 0;
-    border-left: 0;
-    border-right: 0;
+.brand-metrics span {
+  min-height: 62px;
+  align-content: center;
+  padding: 10px 16px;
+  border-left-color: var(--line-soft);
+  color: #87a6df;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.brand-metrics strong {
+  color: #f9fbff;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.brand-metrics__accent strong,
+.brand-metrics__warn strong {
+  color: var(--accent-bright);
+}
+
+.viewer-banner {
+  margin-bottom: 20px;
+  border-color: rgba(255, 223, 0, .32);
+  border-radius: 16px;
+  background: rgba(255, 223, 0, .055);
+}
+
+.tab-panels {
+  min-height: 480px;
+}
+
+.tab-panel.active {
+  animation: panel-in .22s ease both;
+}
+
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: none; }
+}
+
+.card,
+.premium-card {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.018), transparent 35%),
+    rgba(7, 16, 31, .92);
+  box-shadow: none;
+}
+
+.premium-card {
+  min-height: 132px;
+  display: grid;
+  align-items: center;
+  padding: 22px;
+}
+
+.agenda-head {
+  margin: 0;
+}
+
+.premium-card > h2,
+.agenda-head h2,
+.card-head h2 {
+  color: #f8fafc;
+  font-size: clamp(20px, 3vw, 28px);
+  letter-spacing: -.025em;
+  text-transform: none;
+}
+
+.agenda-head .btn {
+  min-height: 42px;
+  padding-inline: 18px;
+  border-radius: 11px;
+  font-size: 13px;
+}
+
+.card-head {
+  min-height: 68px;
+  padding: 16px 20px;
+  border-bottom-color: var(--line-soft);
+}
+
+.equipment-list,
+.notes,
+.drive-panel,
+.media-list {
+  border-color: var(--line-soft);
+}
+
+.equipment-item,
+.observation-item,
+.media-item,
+.booking-item {
+  border-color: var(--line-soft);
+  background: rgba(10, 19, 36, .72);
+}
+
+.btn {
+  min-height: 40px;
+  border-radius: 11px;
+  font-weight: 800;
+}
+
+.btn-yellow,
+.btn-primary {
+  background: linear-gradient(135deg, #ffe71f, #ffdb00);
+  color: #07101f;
+  box-shadow: 0 10px 24px rgba(255, 223, 0, .13);
+}
+
+.btn.ghost,
+.btn-outline {
+  border: 1px solid #2c3a52;
+  background: rgba(255,255,255,.025);
+  color: #c5cede;
+}
+
+.status-footer {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  margin-top: min(34vh, 310px);
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(7, 16, 31, .78);
+  color: #aac8ff;
+}
+
+.live-empty-card {
+  min-height: 310px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 9px;
+  padding: 36px;
+  text-align: center;
+}
+
+.live-empty-card__icon {
+  width: 62px;
+  height: 62px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 6px;
+  border: 1px solid #2b3a54;
+  border-radius: 20px;
+  background: #0b1528;
+  color: var(--accent-bright);
+}
+
+.live-empty-card h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(22px, 4vw, 30px);
+}
+
+.live-empty-card p:last-child {
+  max-width: 440px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.modal-overlay,
+.terms-popup-overlay {
+  background: rgba(0, 4, 14, .82);
+  backdrop-filter: blur(12px);
+}
+
+.modal-content,
+.terms-popup,
+.availability-card {
+  border: 1px solid #2a3953;
+  border-radius: 20px;
+  background: #081122;
+  box-shadow: 0 30px 90px rgba(0,0,0,.55);
+}
+
+.modal-head,
+.terms-popup__head,
+.availability-head {
+  border-bottom-color: var(--line-soft);
+}
+
+.notif-panel,
+.account-menu {
+  border-color: #2b3951;
+  border-radius: 16px;
+  background: #0a1222;
+  box-shadow: 0 28px 70px rgba(0,0,0,.5);
+}
+
+@media (min-width: 1180px) {
+  :root {
+    --side-nav-width: 244px;
+    --side-nav-width-collapsed: 76px;
   }
-  .youtube-podcast-item { grid-template-columns: 150px minmax(0, 1fr); }
-  .audio-floating-btn {
-    right: 14px;
-    bottom: calc(96px + env(safe-area-inset-bottom));
+
+  .side-nav {
+    padding: 24px 13px 16px;
+    gap: 22px;
+    border-right: 1px solid #28334a;
+    background: var(--sidebar);
+    box-shadow: 12px 0 34px rgba(0,0,0,.14);
+  }
+
+  .side-nav__brand {
+    padding: 0 6px;
+  }
+
+  .side-nav__brand .logo-chip {
+    width: 42px;
+    height: 42px;
+    border-radius: 13px;
+  }
+
+  .side-nav__brand-copy .eyebrow {
+    color: var(--accent-bright);
+    font-size: 8px;
+    font-weight: 800;
+  }
+
+  .side-nav__brand-copy strong {
+    font-size: 17px;
+    letter-spacing: -.025em;
+  }
+
+  .side-nav__tabs {
+    gap: 7px;
+  }
+
+  .side-nav__tabs button {
+    min-height: 46px;
+    padding: 0 14px;
+    border-radius: 12px;
+    color: #a5afc1;
+    font-size: 14px;
+  }
+
+  .side-nav__tabs button.active {
+    color: #07101f;
+    background: linear-gradient(135deg, #ffe823, #ffdb2d);
+    box-shadow: 0 12px 28px rgba(255, 223, 0, .19);
+  }
+
+  .side-nav__collapse {
+    min-height: 39px;
+    border-color: #303b50;
+    border-radius: 11px;
+    background: rgba(255,255,255,.025);
+  }
+
+  .wrap {
+    width: min(1320px, calc(100% - var(--side-nav-width) - 34px));
+    margin: 0 0 0 var(--side-nav-width);
+    padding: 26px 16px 96px;
+  }
+
+  .wrap:has(.side-nav--collapsed) {
+    width: min(1320px, calc(100% - var(--side-nav-width-collapsed) - 34px));
+    margin-left: var(--side-nav-width-collapsed);
+  }
+
+  .status-footer {
+    margin-top: min(36vh, 320px);
+  }
+}
+
+@media (max-width: 760px) {
+  .wrap {
+    width: min(100% - 20px, 720px);
+    padding-top: 14px;
+  }
+
+  .assego-marquee {
+    margin-bottom: 14px;
+  }
+
+  .brand-top {
+    align-items: center;
+  }
+
+  .brand-metrics {
+    margin-top: 14px;
+  }
+
+  .brand-metrics span {
+    min-width: 86px;
+    min-height: 56px;
+  }
+
+  .premium-card {
+    min-height: 118px;
+    padding: 18px;
+  }
+
+  .agenda-head {
+    align-items: stretch;
+  }
+
+  .agenda-head .btn {
+    width: 100%;
+  }
+
+  .status-footer {
+    margin-top: 28px;
+    margin-bottom: 90px;
+  }
+
+  .login-card {
+    padding: 26px 22px;
   }
 }
 
@@ -2955,3 +3337,14 @@ footer {
   cursor: not-allowed;
 }
 .availability-slots-empty { color: var(--muted); font-size: 13px; }
+
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 3px solid var(--accent-bright);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-panel.active {
+    animation: none;
+  }
+}

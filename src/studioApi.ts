@@ -94,6 +94,39 @@ async function selectOrThrow<T>(query: PromiseLike<{ data: T | null; error: { me
   return data;
 }
 
+type CheckoutRow = {
+  item_id: string;
+  user_name: string;
+  user_id: string | null;
+  user_email?: string | null;
+  qty: number;
+  photo: string | null;
+  justification?: string | null;
+  taken_at: string;
+};
+
+function isLegacyCheckoutSchema(message: string) {
+  const mentionsOptionalColumn = /(user_email|justification)/i.test(message);
+  const reportsMissingSchema = /(studio_checkouts|column|schema cache|could not find)/i.test(message);
+  return mentionsOptionalColumn && reportsMissingSchema;
+}
+
+async function loadCheckoutRows(): Promise<CheckoutRow[]> {
+  if (!supabase) return [];
+  const modern = await supabase
+    .from('studio_checkouts')
+    .select('item_id, user_name, user_id, user_email, qty, photo, justification, taken_at');
+
+  if (!modern.error) return (modern.data ?? []) as CheckoutRow[];
+  if (!isLegacyCheckoutSchema(modern.error.message)) throw new Error(modern.error.message);
+
+  const legacy = await supabase
+    .from('studio_checkouts')
+    .select('item_id, user_name, user_id, qty, photo, taken_at');
+  if (legacy.error) throw new Error(legacy.error.message);
+  return (legacy.data ?? []) as CheckoutRow[];
+}
+
 export async function loadStudio(): Promise<StudioState> {
   const local = readLocalStudio();
   if (!supabase) return local;
@@ -101,9 +134,7 @@ export async function loadStudio(): Promise<StudioState> {
   try {
     const [checklist, checkouts, observations, conferences, media] = await Promise.all([
       selectOrThrow<Array<{ item_id: string; checked: boolean }>>(supabase.from('studio_checklist').select('item_id, checked')),
-      selectOrThrow<Array<{ item_id: string; user_name: string; user_id: string | null; user_email: string | null; qty: number; photo: string | null; justification: string | null; taken_at: string }>>(
-        supabase.from('studio_checkouts').select('item_id, user_name, user_id, user_email, qty, photo, justification, taken_at'),
-      ),
+      loadCheckoutRows(),
       selectOrThrow<Array<{ id: string; author: string; body: string; created_at: string }>>(
         supabase.from('studio_observations').select('id, author, body, created_at').order('created_at', { ascending: false }).limit(80),
       ),
@@ -179,7 +210,7 @@ export async function resetChecks(itemIds: string[], userId: string) {
 
 export async function upsertCheckout(itemId: string, checkout: Checkout) {
   if (!supabase) return;
-  const { error } = await supabase.from('studio_checkouts').upsert({
+  const modernPayload = {
     item_id: itemId,
     user_name: checkout.user,
     user_id: checkout.userId ?? null,
@@ -188,8 +219,14 @@ export async function upsertCheckout(itemId: string, checkout: Checkout) {
     photo: checkout.photo ?? null,
     justification: checkout.justification ?? null,
     taken_at: new Date(checkout.ts).toISOString(),
-  });
-  if (error) throw new Error(error.message);
+  };
+  const { error } = await supabase.from('studio_checkouts').upsert(modernPayload);
+  if (!error) return;
+  if (!isLegacyCheckoutSchema(error.message)) throw new Error(error.message);
+
+  const { user_email: _userEmail, justification: _justification, ...legacyPayload } = modernPayload;
+  const legacy = await supabase.from('studio_checkouts').upsert(legacyPayload);
+  if (legacy.error) throw new Error(legacy.error.message);
 }
 
 export async function deleteCheckout(itemId: string) {

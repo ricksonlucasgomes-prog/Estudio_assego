@@ -1,5 +1,5 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, ClipboardCheck, PackageCheck, Video, CalendarDays, Volume2, VolumeX, Camera, LogOut, ChevronLeft, ChevronRight, type LucideIcon } from 'lucide-react';
+import { Bell, ClipboardCheck, PackageCheck, Video, CalendarDays, Camera, LogOut, ChevronLeft, ChevronRight, type LucideIcon } from 'lucide-react';
 import { edgeFunctionUrl, supabase, supabaseConfigured, type Profile, type UserRole } from './supabase';
 import { TermsScrollPopup } from './TermsScrollPopup';
 import { BOOKING_TERMS, EQUIPMENT_TERMS } from './termsContent';
@@ -85,28 +85,8 @@ const EQUIPMENT: EquipmentGroup[] = [
 
 const ALL_EQUIPMENT = EQUIPMENT.flatMap((group) => group.items);
 const PROFILE_KEY = 'assego-profile-photos-v3';
-const STREAM_ID = 'kSgcFevrC0o';
-
-type PodcastEpisode = {
-  id: string;
-  title: string;
-  channel: string;
-  youtubeId: string;
-  status: 'live' | 'recorded';
-  duration?: string;
-  publishedAt?: string;
-  description?: string;
-  audioUrl?: string;
-};
-
 type AvailabilitySlot = { time: string; available: boolean };
 type AvailabilityDay = { date: string; weekday: number; slots: AvailabilitySlot[]; hasAvailability: boolean };
-
-// Lista de episódios gravados exibida abaixo do player (filtro Todos/Ao
-// vivo/Gravados). Vazia até existir episódio real para cadastrar — sem
-// placeholder falso. O player principal da aba "Ao Vivo" continua usando
-// STREAM_ID direto (ver fallback em selectedPodcast?.youtubeId ?? STREAM_ID).
-const PODCAST_EPISODES: PodcastEpisode[] = [];
 
 const EMAIL_RECIPIENTS = ['ricksonlucasgomes@gmail.com', 'comunicacaoassego@gmail.com', 'P3dacao@gmail.com'];
 // Destinatários da aprovação do agendamento. O texto do Termo de Uso agora
@@ -309,17 +289,12 @@ export function App() {
   const [mediaTitle, setMediaTitle] = useState('');
   const [mediaBusy, setMediaBusy] = useState(false);
   const [savedNote, setSavedNote] = useState('Conferência salva automaticamente');
-  const [cameraClock, setCameraClock] = useState(Date.now());
-  const [cameraOn, setCameraOn] = useState(false);
   const [accessRequestBusy, setAccessRequestBusy] = useState(false);
   const [accessRequestInfo, setAccessRequestInfo] = useState('');
   // Papel que o próprio usuário está pedindo em "Pedir liberação". Quem
   // decide se libera é sempre um admin/developer manualmente no SQL Editor
   // — isto só define o texto do pedido enviado por email.
   const [requestedRoleChoice, setRequestedRoleChoice] = useState<'borrower' | 'admin'>('borrower');
-  const [selectedPodcastId, setSelectedPodcastId] = useState(PODCAST_EPISODES[0]?.id ?? '');
-  const [podcastFilter, setPodcastFilter] = useState<'all' | 'live' | 'recorded'>('all');
-  const [audioEnabled, setAudioEnabled] = useState(false);
   // Preferência de sidebar recolhida (só desktop). Persistida por aparelho.
   const [sideNavCollapsed, setSideNavCollapsed] = useState<boolean>(() => {
     try {
@@ -340,8 +315,8 @@ export function App() {
     });
   }
   
-  // 3. Estado inicial da aba agora é 'camera' (Ao Vivo)
-  const [activeTab, setActiveTab] = useState<MainTab>('camera');
+  // A Agenda é a entrada principal do painel.
+  const [activeTab, setActiveTab] = useState<MainTab>('agenda');
 
   // 4. Estados da Nova Feature de Agendamento
   const [showBookingModal, setShowBookingModal] = useState(false);
@@ -391,12 +366,6 @@ export function App() {
   const [equipmentListBusy, setEquipmentListBusy] = useState(false);
   const [equipmentListError, setEquipmentListError] = useState('');
   const [equipmentActionId, setEquipmentActionId] = useState('');
-
-  const selectedPodcast = PODCAST_EPISODES.find((episode) => episode.id === selectedPodcastId) ?? PODCAST_EPISODES[0];
-  const filteredPodcasts = PODCAST_EPISODES.filter((episode) => {
-    if (podcastFilter === 'all') return true;
-    return episode.status === podcastFilter;
-  });
 
   const role: UserRole = profile?.role ?? 'viewer';
   // 'developer' tem acesso total, equivalente a 'admin', em tudo.
@@ -454,11 +423,6 @@ export function App() {
   useEffect(() => {
     writeJson(PROFILE_KEY, profilePhotos);
   }, [profilePhotos]);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setCameraClock(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
 
   // Sessao Supabase + carregamento do perfil
   useEffect(() => {
@@ -910,11 +874,12 @@ export function App() {
 
       let syncStatus: MediaItem['syncStatus'] = 'local';
 
-      if (UPLOAD_ENDPOINT && supabase) {
+      if (supabase) {
+        const uploadEndpoint = UPLOAD_ENDPOINT || edgeFunctionUrl('upload-media');
         try {
           const { data: sessionData } = await supabase.auth.getSession();
           const token = sessionData.session?.access_token;
-          const response = await fetch(UPLOAD_ENDPOINT, {
+          const response = await fetch(uploadEndpoint, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -1317,41 +1282,6 @@ export function App() {
     </div>
   ) : null;
 
-  const liveModal = cameraOn ? (
-    <div className="live-modal" role="dialog" aria-modal="true" onClick={() => setCameraOn(false)}>
-      <div className="live-modal-card" onClick={(event) => event.stopPropagation()}>
-        <div className="live-modal-head">
-          <span className="live-badge">YouTube</span>
-          <span className="live-modal-title">Podcast ASSEGO</span>
-          <button className="live-modal-close" type="button" onClick={() => setCameraOn(false)} aria-label="Fechar transmissão">✕</button>
-        </div>
-        <div className="video-box camera-frame">
-          <iframe
-            title="Podcast ASSEGO no YouTube"
-            src={`https://www.youtube.com/embed/${STREAM_ID}?autoplay=1&mute=1&controls=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`}
-            allow="autoplay; encrypted-media; picture-in-picture"
-            allowFullScreen
-          />
-          <div className="camera-overlay" aria-hidden="true">
-            <div className="camera-hud top">
-              <span><strong>REC</strong> CAM 01</span>
-              <span>{formatDateTime(cameraClock)}</span>
-            </div>
-            <div className="camera-hud bottom">
-              <span>ASSEGO STUDIO</span>
-              <span>1080P · AUTO</span>
-            </div>
-            <span className="frame-corner tl" />
-            <span className="frame-corner tr" />
-            <span className="frame-corner bl" />
-            <span className="frame-corner br" />
-            <span className="focus-mark" />
-          </div>
-        </div>
-      </div>
-    </div>
-  ) : null;
-
   if (!authReady) {
     return (
       <main className="login-screen">
@@ -1445,6 +1375,8 @@ export function App() {
                 <button
                   type="button"
                   className="notif-bell"
+                  aria-expanded={showNotifications}
+                  aria-controls="notifications-panel"
                   aria-label="Notificações"
                   onClick={() => setShowNotifications((current) => !current)}
                 >
@@ -1455,7 +1387,7 @@ export function App() {
                 {showNotifications && (
                   <>
                     <div className="account-menu-backdrop" onClick={() => setShowNotifications(false)} />
-                    <div className="notif-panel" role="menu">
+                    <div id="notifications-panel" className="notif-panel" role="menu">
                       <div className="notif-panel__head">
                         <div>
                           <strong>Notificações</strong>
@@ -1636,6 +1568,9 @@ export function App() {
             <button
               type="button"
               className="avatar avatar-btn"
+              aria-label="Abrir menu da conta"
+              aria-expanded={showAccountMenu}
+              aria-controls="account-menu"
               title={`${userName} · ${ROLE_LABEL[role]}`}
               onClick={() => setShowAccountMenu((current) => !current)}
             >
@@ -1647,7 +1582,7 @@ export function App() {
             {showAccountMenu && (
               <>
                 <div className="account-menu-backdrop" onClick={() => setShowAccountMenu(false)} />
-                <div className="account-menu" role="menu">
+                <div id="account-menu" className="account-menu" role="menu">
                   <div className="account-menu__head">
                     <div className="avatar avatar--lg">
                       {profilePhotos[userId] || googleAvatarUrl ? (
@@ -1761,59 +1696,11 @@ export function App() {
         {/* ABA: AO VIVO                  */}
         {/* ============================== */}
         <div className={`tab-panel ${activeTab === 'camera' ? 'active' : ''}`}>
-          <article className="youtube-live-screen">
-            <div className="youtube-player-shell">
-              <iframe
-                title={selectedPodcast?.title ?? 'Podcast ASSEGO'}
-                src={`https://www.youtube.com/embed/${selectedPodcast?.youtubeId ?? STREAM_ID}?autoplay=0&controls=1&rel=0&modestbranding=1&playsinline=1`}
-                allow="autoplay; encrypted-media; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-
-            <div className="youtube-current-info">
-              <h2>{selectedPodcast?.title ?? 'Podcast ASSEGO'}</h2>
-              <p>{selectedPodcast?.channel ?? 'Assego Oficial'}</p>
-              {selectedPodcast?.description && <span>{selectedPodcast.description}</span>}
-            </div>
-
-            {PODCAST_EPISODES.length > 0 && (
-              <>
-                <div className="youtube-filter-row">
-                  <button type="button" className={podcastFilter === 'all' ? 'active' : ''} onClick={() => setPodcastFilter('all')}>
-                    Todos
-                  </button>
-                  <button type="button" className={podcastFilter === 'live' ? 'active' : ''} onClick={() => setPodcastFilter('live')}>
-                    Ao vivo
-                  </button>
-                  <button type="button" className={podcastFilter === 'recorded' ? 'active' : ''} onClick={() => setPodcastFilter('recorded')}>
-                    Gravados
-                  </button>
-                </div>
-
-                <div className="youtube-podcast-list">
-                  {filteredPodcasts.map((episode) => (
-                    <button
-                      key={episode.id}
-                      type="button"
-                      className={`youtube-podcast-item ${selectedPodcast?.id === episode.id ? 'active' : ''}`}
-                      onClick={() => setSelectedPodcastId(episode.id)}
-                    >
-                      <img
-                        src={`https://img.youtube.com/vi/${episode.youtubeId}/hqdefault.jpg`}
-                        alt=""
-                        loading="lazy"
-                      />
-                      <span>
-                        <strong>{episode.title}</strong>
-                        <small>{episode.channel}</small>
-                        <small>{episode.status === 'live' ? 'Ao vivo agora' : episode.duration || 'Podcast gravado'}</small>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
+          <article className="card live-empty-card">
+            <div className="live-empty-card__icon" aria-hidden="true"><Video size={28} strokeWidth={1.8} /></div>
+            <p className="eyebrow">Ao vivo</p>
+            <h2>Nenhuma transmissão configurada</h2>
+            <p>Quando uma transmissão oficial estiver disponível, ela aparecerá aqui.</p>
           </article>
         </div>
 
@@ -2446,7 +2333,6 @@ export function App() {
       </nav>
       {installFab}
       {iosModal}
-      {liveModal}
 
       {showAvailability && (
         <div className="modal-overlay availability-overlay" role="dialog" aria-modal="true" onClick={() => setShowAvailability(false)}>
@@ -2523,19 +2409,6 @@ export function App() {
         </div>
       )}
 
-      <button
-        className={`audio-floating-btn ${audioEnabled ? 'active' : ''}`}
-        type="button"
-        onClick={() => setAudioEnabled((current) => !current)}
-        aria-label={audioEnabled ? 'Desativar áudio do podcast' : 'Ativar áudio do podcast'}
-      >
-        {audioEnabled
-          ? <Volume2 aria-hidden="true" size={22} strokeWidth={2.2} />
-          : <VolumeX aria-hidden="true" size={22} strokeWidth={2.2} />}
-      </button>
-      {selectedPodcast?.audioUrl && audioEnabled ? (
-        <audio src={selectedPodcast.audioUrl} autoPlay loop />
-      ) : null}
     </main>
   );
 }
