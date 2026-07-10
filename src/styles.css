@@ -981,6 +981,184 @@ footer {
   padding-left: 0;
 }
 
+/* ===== Categorias recolhíveis da aba "Pegar Equipamento do Estúdio" ===== */
+/* Cards recolhidos ficam compactos no grid, sem esticar até a altura do vizinho. */
+.equipment-list--custody {
+  align-items: start;
+}
+
+.equipment-cat__toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.equipment-cat__title {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  color: var(--accent-bright);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.equipment-cat__title small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: none;
+}
+
+.equipment-cat__action {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border: 1px solid #2c3a52;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, .03);
+  color: #c5cede;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.equipment-cat__toggle:hover .equipment-cat__action {
+  border-color: var(--accent-bright);
+  color: var(--accent-bright);
+}
+
+.equipment-cat__action svg {
+  transition: transform .18s ease;
+}
+
+.equipment-cat.expanded .equipment-cat__action svg {
+  transform: rotate(90deg);
+}
+
+.equipment-cat__items {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.equipment-cat__items .equipment-item {
+  margin-top: 0;
+}
+
+/* ===== Popup "Pegar equipamento" (descrição, quantidade, justificativa,
+   termo, assinatura e validação facial por selfie) ===== */
+.take-modal {
+  display: grid;
+  gap: 14px;
+}
+
+.take-modal__item {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .02);
+}
+
+.take-modal__item strong {
+  font-size: 18px;
+  color: var(--text);
+}
+
+.take-modal__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #7587a4;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.take-modal__tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.take-modal > label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.take-modal > label input,
+.take-modal > label select,
+.take-modal > label textarea {
+  width: 100%;
+  padding: 11px 12px;
+}
+
+.take-modal > label textarea {
+  min-height: 74px;
+  resize: vertical;
+}
+
+.take-modal .term-step .btn {
+  width: 100%;
+}
+
+.face-step {
+  display: grid;
+  gap: 8px;
+}
+
+.face-step__capture {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.face-step__done {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.face-step__done img {
+  width: 72px;
+  height: 72px;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(70, 220, 154, .55);
+}
+
+.face-step__done label {
+  display: inline-flex;
+  align-items: center;
+}
+
+.face-step__hint {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .flag {
   color: #fff;
   background: var(--alert);

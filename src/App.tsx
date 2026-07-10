@@ -1,5 +1,5 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, ClipboardCheck, PackageCheck, Video, CalendarDays, Camera, LogOut, Clock3, Radio, ShieldCheck, Package, ArrowRight, Activity, type LucideIcon } from 'lucide-react';
+import { Bell, ClipboardCheck, PackageCheck, Video, CalendarDays, Camera, LogOut, ChevronRight, Clock3, Radio, ShieldCheck, Package, ArrowRight, Activity, ScanFace, type LucideIcon } from 'lucide-react';
 import { edgeFunctionUrl, supabase, supabaseConfigured, type Profile, type UserRole } from './supabase';
 import { TermsScrollPopup } from './TermsScrollPopup';
 import { BOOKING_TERMS, EQUIPMENT_TERMS } from './termsContent';
@@ -336,6 +336,11 @@ export function App() {
   const [showEquipmentTermPopup, setShowEquipmentTermPopup] = useState(false);
   const [equipmentTermAccepted, setEquipmentTermAccepted] = useState(false);
   const [equipmentSignatureName, setEquipmentSignatureName] = useState('');
+  // Categorias recolhidas por padrão: só mostram os itens após "Expandir".
+  const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>({});
+  // Selfie de validação facial capturada no popup de "Pegar" (base64).
+  const [takeFacePhoto, setTakeFacePhoto] = useState('');
+  const [takeFaceBusy, setTakeFaceBusy] = useState(false);
 
   // Solicitação de equipamento por quem não é admin/borrower.
   const [showEquipmentAccessGate, setShowEquipmentAccessGate] = useState(false);
@@ -689,6 +694,43 @@ export function App() {
   // Gate do termo de equipamento (mesmo mecanismo do agendamento): só
   // libera "Confirmar retirada" depois de ler até o fim e assinar.
   const equipmentSignatureReady = equipmentTermAccepted && equipmentSignatureName.trim().length >= 3;
+  // O popup de "Pegar" exige, além do termo e assinatura, a justificativa
+  // preenchida e a selfie de validação facial capturada.
+  const takeReady = equipmentSignatureReady && pendingJustification.trim().length > 0 && Boolean(takeFacePhoto);
+
+  // Abre/fecha o popup de retirada, sempre partindo de um formulário limpo.
+  function openTakeModal(id: string) {
+    setPendingTake(id);
+    setPendingQty(1);
+    setPendingJustification('');
+    setEquipmentTermAccepted(false);
+    setEquipmentSignatureName('');
+    setTakeFacePhoto('');
+  }
+  function closeTakeModal() {
+    setPendingTake('');
+    setPendingJustification('');
+    setEquipmentTermAccepted(false);
+    setEquipmentSignatureName('');
+    setTakeFacePhoto('');
+  }
+
+  // Captura a selfie de validação facial (câmera frontal no celular via
+  // capture="user"; no desktop cai no seletor de arquivos).
+  async function handleFaceCapture(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setTakeFaceBusy(true);
+    try {
+      const photo = await resizePhoto(file);
+      setTakeFacePhoto(photo);
+    } catch {
+      flash('Não foi possível processar a selfie de validação');
+    } finally {
+      setTakeFaceBusy(false);
+    }
+  }
 
   function takeItem(id: string, qty: number, justification: string) {
     if (!canManage || !isAuthed) return;
@@ -701,8 +743,12 @@ export function App() {
       flash('Leia o termo de uso, aceite e assine antes de confirmar a retirada');
       return;
     }
+    if (!takeFacePhoto) {
+      flash('Faça a validação facial (selfie) antes de confirmar a retirada');
+      return;
+    }
     const ts = Date.now();
-    const checkout: Checkout = { user: userName, userId, userEmail, ts, qty, justification: trimmedJustification };
+    const checkout: Checkout = { user: userName, userId, userEmail, ts, qty, justification: trimmedJustification, photo: takeFacePhoto };
     setStudio((current) => ({
       ...current,
       checkouts: { ...current.checkouts, [id]: checkout },
@@ -714,6 +760,7 @@ export function App() {
           equipmentName: equipmentName(id),
           qty,
           justification: trimmedJustification,
+          photo: takeFacePhoto,
           checkedOutAt: ts,
         }),
         ...(current.notificationEvents ?? []),
@@ -725,6 +772,7 @@ export function App() {
     setPendingJustification('');
     setEquipmentTermAccepted(false);
     setEquipmentSignatureName('');
+    setTakeFacePhoto('');
     flash('Retirada registrada');
   }
 
@@ -1964,108 +2012,68 @@ export function App() {
           </div>
         ) : (
           <div className="equipment-list equipment-list--custody">
-            {EQUIPMENT.map((group) => (
-              <div key={group.cat}>
-                <h3>{group.cat}</h3>
-                {group.items.map((item) => {
-                  const checkout = studio.checkouts[item.id];
-                  const isOwner = checkout && (checkout.userId ? checkout.userId === userId : checkout.user === userName);
-                  const canReturn = Boolean(checkout) && (isAdmin || isOwner);
-                  return (
-                    <div className={`equipment-item ${checkout ? 'taken' : ''}`} key={item.id}>
-                      <div className="equipment-main">
-                        <span className="equipment-name">{item.name}</span>
-                        <div className="equipment-meta">
-                          <span className="qty">{item.qty} unidades</span>
-                          {item.alert && <span className="flag">{item.alert}</span>}
-                        </div>
-                      </div>
-                      {checkout ? (
-                        <div className="borrow">
-                          <div className="borrow-copy">
-                            <strong>Retirado por {checkout.user}</strong>
-                            <span>{checkout.qty} unidade(s) - {borrowDueText(checkout)}</span>
-                            {checkout.justification && <em className="borrow-justification">"{checkout.justification}"</em>}
-                          </div>
-                          <button className="btn small" type="button" disabled={!canReturn} onClick={() => returnItem(item.id)}>Devolver</button>
-                        </div>
-                      ) : pendingTake === item.id ? (
-                        <div className="take-form">
-                          <label>
-                            Equipamento sendo solicitado
-                            <input value={item.name} disabled readOnly />
-                          </label>
-                          <label>
-                            Quantidade
-                            <select value={pendingQty} onChange={(event) => setPendingQty(Number(event.target.value))}>
-                              {Array.from({ length: item.qty }, (_, index) => index + 1).map((qty) => <option key={qty} value={qty}>{qty}</option>)}
-                            </select>
-                          </label>
-                          <label>
-                            Justificativa (por que está pedindo o uso do equipamento)
-                            <textarea
-                              value={pendingJustification}
-                              onChange={(event) => setPendingJustification(event.target.value)}
-                              placeholder="Ex: gravação do podcast de quarta-feira"
-                            />
-                          </label>
+            {EQUIPMENT.map((group) => {
+              const expanded = Boolean(expandedCats[group.cat]);
+              const takenInCat = group.items.filter((item) => studio.checkouts[item.id]).length;
+              return (
+                <div className={`equipment-cat ${expanded ? 'expanded' : ''}`} key={group.cat}>
+                  <button
+                    type="button"
+                    className="equipment-cat__toggle"
+                    aria-expanded={expanded}
+                    onClick={() => setExpandedCats((prev) => ({ ...prev, [group.cat]: !prev[group.cat] }))}
+                  >
+                    <span className="equipment-cat__title">
+                      {group.cat}
+                      <small>{group.items.length} {group.items.length === 1 ? 'item' : 'itens'}{takenInCat > 0 ? ` · ${takenInCat} fora` : ''}</small>
+                    </span>
+                    <span className="equipment-cat__action">
+                      {expanded ? 'Recolher' : 'Expandir'}
+                      <ChevronRight size={16} strokeWidth={2.4} aria-hidden="true" />
+                    </span>
+                  </button>
 
-                          <div className={`term-step ${equipmentTermAccepted ? 'done' : ''}`}>
-                            <button type="button" className="btn btn-outline" onClick={() => setShowEquipmentTermPopup(true)}>
-                              {equipmentTermAccepted ? '✓ Termo de uso aceito' : 'Ler termo de uso'}
-                            </button>
+                  {expanded && (
+                    <div className="equipment-cat__items">
+                      {group.items.map((item) => {
+                        const checkout = studio.checkouts[item.id];
+                        const isOwner = checkout && (checkout.userId ? checkout.userId === userId : checkout.user === userName);
+                        const canReturn = Boolean(checkout) && (isAdmin || isOwner);
+                        return (
+                          <div className={`equipment-item ${checkout ? 'taken' : ''}`} key={item.id}>
+                            <div className="equipment-main">
+                              <span className="equipment-name">{item.name}</span>
+                              <div className="equipment-meta">
+                                <span className="qty">{item.qty} unidades</span>
+                                {item.alert && <span className="flag">{item.alert}</span>}
+                              </div>
+                            </div>
+                            {checkout ? (
+                              <div className="borrow">
+                                <div className="borrow-copy">
+                                  <strong>Retirado por {checkout.user}</strong>
+                                  <span>{checkout.qty} unidade(s) - {borrowDueText(checkout)}</span>
+                                  {checkout.justification && <em className="borrow-justification">"{checkout.justification}"</em>}
+                                </div>
+                                <button className="btn small" type="button" disabled={!canReturn} onClick={() => returnItem(item.id)}>Devolver</button>
+                              </div>
+                            ) : (
+                              <button
+                                className="btn small ghost take-action"
+                                type="button"
+                                onClick={() => openTakeModal(item.id)}
+                              >
+                                Pegar
+                              </button>
+                            )}
                           </div>
-                          <label>
-                            Assinatura digital (nome completo)
-                            <input
-                              value={equipmentSignatureName}
-                              disabled={!equipmentTermAccepted}
-                              onChange={(event) => setEquipmentSignatureName(event.target.value)}
-                              placeholder="Digite seu nome completo para confirmar"
-                            />
-                          </label>
-
-                          <button
-                            className="btn small"
-                            type="button"
-                            onClick={() => takeItem(item.id, pendingQty, pendingJustification)}
-                            disabled={!pendingJustification.trim() || !equipmentSignatureReady}
-                          >
-                            Confirmar retirada
-                          </button>
-                          <button
-                            className="btn small ghost"
-                            type="button"
-                            onClick={() => {
-                              setPendingTake('');
-                              setPendingJustification('');
-                              setEquipmentTermAccepted(false);
-                              setEquipmentSignatureName('');
-                            }}
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          className="btn small ghost take-action"
-                          type="button"
-                          onClick={() => {
-                            setPendingTake(item.id);
-                            setPendingQty(1);
-                            setPendingJustification('');
-                            setEquipmentTermAccepted(false);
-                            setEquipmentSignatureName('');
-                          }}
-                        >
-                          Pegar
-                        </button>
-                      )}
+                        );
+                      })}
                     </div>
-                  );
-                })}
-              </div>
-            ))}
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </article>
@@ -2078,6 +2086,96 @@ export function App() {
           onClose={() => setShowEquipmentTermPopup(false)}
         />
       )}
+
+      {pendingTake && (() => {
+        const item = ALL_EQUIPMENT.find((eq) => eq.id === pendingTake);
+        if (!item) return null;
+        return (
+          <div className="modal-overlay" role="dialog" aria-modal="true" onClick={closeTakeModal}>
+            <div className="modal-content" onClick={(event) => event.stopPropagation()}>
+              <div className="modal-head">
+                <h3>Pegar equipamento</h3>
+                <button className="modal-close" type="button" onClick={closeTakeModal} aria-label="Fechar">✕</button>
+              </div>
+
+              <div className="take-modal">
+                <div className="take-modal__item">
+                  <span className="take-modal__label">Equipamento solicitado</span>
+                  <strong>{item.name}</strong>
+                  <div className="take-modal__tags">
+                    <span className="qty">{item.qty} unidades disponíveis</span>
+                    {item.alert && <span className="flag">{item.alert}</span>}
+                  </div>
+                </div>
+
+                <label>
+                  Quantidade
+                  <select value={pendingQty} onChange={(event) => setPendingQty(Number(event.target.value))}>
+                    {Array.from({ length: item.qty }, (_, index) => index + 1).map((qty) => <option key={qty} value={qty}>{qty}</option>)}
+                  </select>
+                </label>
+
+                <label>
+                  Justificativa (por que está pedindo o uso do equipamento)
+                  <textarea
+                    value={pendingJustification}
+                    onChange={(event) => setPendingJustification(event.target.value)}
+                    placeholder="Ex: gravação do podcast de quarta-feira"
+                  />
+                </label>
+
+                <div className={`term-step ${equipmentTermAccepted ? 'done' : ''}`}>
+                  <button type="button" className="btn btn-outline" onClick={() => setShowEquipmentTermPopup(true)}>
+                    {equipmentTermAccepted ? '✓ Termo de uso aceito' : 'Ler termo de uso'}
+                  </button>
+                </div>
+
+                <label>
+                  Assinatura digital (nome completo)
+                  <input
+                    value={equipmentSignatureName}
+                    disabled={!equipmentTermAccepted}
+                    onChange={(event) => setEquipmentSignatureName(event.target.value)}
+                    placeholder="Digite seu nome completo para confirmar"
+                  />
+                </label>
+
+                <div className="face-step">
+                  <span className="take-modal__label"><ScanFace size={16} aria-hidden="true" /> Validação facial (selfie)</span>
+                  {takeFacePhoto ? (
+                    <div className="face-step__done">
+                      <img src={takeFacePhoto} alt="Selfie de validação facial" />
+                      <label className="btn small ghost">
+                        {takeFaceBusy ? 'Processando…' : 'Refazer selfie'}
+                        <input type="file" accept="image/*" capture="user" disabled={takeFaceBusy} onChange={handleFaceCapture} hidden />
+                      </label>
+                    </div>
+                  ) : (
+                    <label className="btn btn-outline face-step__capture">
+                      <Camera size={16} aria-hidden="true" />
+                      {takeFaceBusy ? 'Processando…' : 'Tirar selfie de validação'}
+                      <input type="file" accept="image/*" capture="user" disabled={takeFaceBusy} onChange={handleFaceCapture} hidden />
+                    </label>
+                  )}
+                  <small className="face-step__hint">A selfie fica registrada junto à retirada para confirmar quem pegou o equipamento.</small>
+                </div>
+
+                <div className="modal-actions">
+                  <button className="btn ghost" type="button" onClick={closeTakeModal}>Cancelar</button>
+                  <button
+                    className="btn btn-yellow"
+                    type="button"
+                    onClick={() => takeItem(item.id, pendingQty, pendingJustification)}
+                    disabled={!takeReady}
+                  >
+                    Confirmar retirada
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {showEquipmentAccessGate && (
         <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setShowEquipmentAccessGate(false)}>
