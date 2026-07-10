@@ -152,7 +152,7 @@ const MAIN_TABS: TabItem[] = [
   { id: 'agenda', label: 'Agenda', icon: CalendarDays },
   { id: 'camera', label: 'Ao Vivo', icon: Video },
   { id: 'conference', label: 'Conferência', icon: ClipboardCheck },
-  { id: 'custody', label: 'Pegar Equipamento do Estúdio', icon: PackageCheck },
+  { id: 'custody', label: 'Equipamento', icon: PackageCheck },
 ];
 
 // Único aprovador de solicitações (agendamento e equipamento) — regra de
@@ -1700,12 +1700,15 @@ export function App() {
           </div>
         </div>
 
-        <div className="brand-metrics" aria-label="Resumo do estúdio">
-          <span><strong>{ALL_EQUIPMENT.length}</strong> itens</span>
-          <span><strong>{checkedCount}</strong> conferidos</span>
-          <span><strong>{outsideCount}</strong> fora</span>
-          <span className="brand-metrics__accent"><strong>{ROLE_LABEL[role]}</strong> acesso</span>
-        </div>
+        {/* Resumo operacional visível somente para admin/developer. */}
+        {isAdmin && (
+          <div className="brand-metrics" aria-label="Resumo do estúdio">
+            <span><strong>{ALL_EQUIPMENT.length}</strong> itens</span>
+            <span><strong>{checkedCount}</strong> conferidos</span>
+            <span className={outsideCount > 0 ? 'brand-metrics__warn' : ''}><strong>{outsideCount}</strong> fora</span>
+            <span className="brand-metrics__accent"><strong>{ROLE_LABEL[role]}</strong> acesso</span>
+          </div>
+        )}
       </header>
 
       {role === 'viewer' && (
