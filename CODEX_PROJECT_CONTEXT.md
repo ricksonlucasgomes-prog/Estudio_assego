@@ -123,7 +123,9 @@ npm run preview # vite preview (porta 4173)
 ```
 
 Variáveis de ambiente (`.env`, ver `.env.example`): `VITE_SUPABASE_URL`,
-`VITE_SUPABASE_ANON_KEY`, `VITE_GOOGLE_AUTH_ENABLED`, `VITE_ACCESS_REQUEST_ENDPOINT`.
+`VITE_SUPABASE_ANON_KEY`, `VITE_ACCESS_REQUEST_ENDPOINT`, `VITE_UPLOAD_ENDPOINT`.
+O login com Google não depende mais de flag no frontend; se o provider estiver
+ativo no Supabase, o botão chama o OAuth diretamente.
 
 ## 9. Estado atual e pendências
 

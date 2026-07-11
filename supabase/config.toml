@@ -22,6 +22,16 @@ verify_jwt = false
 import_map = "./functions/request-equipment/deno.json"
 entrypoint = "./functions/request-equipment/index.ts"
 
+[functions.request-access]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/request-access/index.ts"
+
+[functions.upload-media]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/upload-media/index.ts"
+
 # Roda 1x por dia (13h UTC = 10h em Brasilia) verificando atraso de 7 dias.
 # Requer pg_cron + pg_net habilitados no projeto (Database > Extensions) e o
 # schedule aplicado via supabase/cron_overdue_equipment.sql (o CLI ainda nao

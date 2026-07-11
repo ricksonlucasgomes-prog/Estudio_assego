@@ -2,12 +2,12 @@
 // Envia email aos admins pedindo liberacao de acesso para um usuario logado.
 //
 // Secrets necessarios:
-//   supabase secrets set RESEND_API_KEY=... MAIL_FROM="Estudio ASSEGO <avisos@dominio>" \
-//     MAIL_TO="ricksonlucasgomes@gmail.com,comunicacaoassego@gmail.com,P3dacao@gmail.com"
+//   supabase secrets set GMAIL_USER=... GMAIL_APP_PASSWORD=...
 // Deploy:
 //   supabase functions deploy request-access
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -15,31 +15,41 @@ const cors = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+const ADMIN_RECIPIENTS = [
+  'ricksonlucasgomes@gmail.com',
+  'comunicacaoassego@gmail.com',
+  'P3dacao@gmail.com',
+];
+
+function escapeSql(value: string) {
+  return value.replace(/'/g, "''");
 }
 
-async function sendEmail(subject: string, html: string) {
-  const key = Deno.env.get('RESEND_API_KEY');
-  const from = Deno.env.get('MAIL_FROM');
-  const to = (Deno.env.get('MAIL_TO') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-
-  if (!key || !from || to.length === 0) {
-    throw new Error('Email nao configurado. Defina RESEND_API_KEY, MAIL_FROM e MAIL_TO nos secrets.');
+async function sendEmail(subject: string, content: string) {
+  const gmailUser = Deno.env.get('GMAIL_USER');
+  const gmailPass = Deno.env.get('GMAIL_APP_PASSWORD');
+  if (!gmailUser || !gmailPass) {
+    console.warn('GMAIL_USER/GMAIL_APP_PASSWORD nao configurados; pulando envio de email.');
+    return;
   }
-
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to, subject, html }),
+  const client = new SMTPClient({
+    connection: {
+      hostname: 'smtp.gmail.com',
+      port: 465,
+      tls: true,
+      auth: { username: gmailUser, password: gmailPass },
+    },
   });
-
-  if (!res.ok) throw new Error('Falha ao enviar email: ' + (await res.text()));
+  try {
+    await client.send({
+      from: gmailUser,
+      to: ADMIN_RECIPIENTS,
+      subject,
+      content,
+    });
+  } finally {
+    await client.close();
+  }
 }
 
 Deno.serve(async (req) => {
@@ -62,21 +72,19 @@ Deno.serve(async (req) => {
     const requestedRole = body.requestedRole === 'admin' ? 'admin' : 'borrower';
     const requestedAt = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 
-    const html = `
-      <h2>Pedido de liberacao de acesso</h2>
-      <p><b>Nome:</b> ${escapeHtml(name)}</p>
-      <p><b>Email:</b> ${escapeHtml(email)}</p>
-      <p><b>ID do usuario:</b> ${escapeHtml(user.id)}</p>
-      <p><b>Acesso solicitado:</b> ${escapeHtml(requestedRole)}</p>
-      <p><b>Data:</b> ${escapeHtml(requestedAt)}</p>
-      <hr />
-      <p>Para liberar no SQL Editor do Supabase:</p>
-      <pre>update public.profiles
-set role = '${escapeHtml(requestedRole)}', full_name = '${escapeHtml(name.replace(/'/g, "''"))}'
-where id = '${escapeHtml(user.id)}';</pre>
-    `;
+    const content =
+      `Pedido de liberacao de acesso\n\n` +
+      `Nome: ${name}\n` +
+      `Email: ${email}\n` +
+      `ID do usuario: ${user.id}\n` +
+      `Acesso solicitado: ${requestedRole}\n` +
+      `Data: ${requestedAt}\n\n` +
+      `Para liberar no SQL Editor do Supabase:\n\n` +
+      `update public.profiles\n` +
+      `set role = '${requestedRole}', full_name = '${escapeSql(name)}'\n` +
+      `where id = '${user.id}';`;
 
-    await sendEmail(`Liberar acesso ao Estudio ASSEGO: ${name}`, html);
+    await sendEmail(`Liberar acesso ao Estudio ASSEGO: ${name}`, content);
 
     return new Response(JSON.stringify({ ok: true }), {
       headers: { ...cors, 'Content-Type': 'application/json' },

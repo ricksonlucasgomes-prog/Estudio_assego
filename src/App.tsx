@@ -99,7 +99,6 @@ const BOOKING_APPROVERS = ['Lucas Rickson', 'Badu', 'Sergio Vinicius', 'Sgt. Tia
 const PODCAST_NOTICE = 'App ainda em desenvolvimento - dev: Lucas Rickson - Novas atualizações em breve';
 const UPLOAD_ENDPOINT = import.meta.env.VITE_UPLOAD_ENDPOINT as string | undefined;
 const ACCESS_REQUEST_ENDPOINT = import.meta.env.VITE_ACCESS_REQUEST_ENDPOINT as string | undefined;
-const GOOGLE_AUTH_ENABLED = import.meta.env.VITE_GOOGLE_AUTH_ENABLED === 'true';
 
 const ROLE_LABEL: Record<UserRole, string> = {
   admin: 'admin',
@@ -250,6 +249,8 @@ function friendlyAuthError(message: string) {
   if (msg.includes('password should be at least')) return 'A senha precisa de pelo menos 6 caracteres.';
   if (msg.includes('unable to validate email') || msg.includes('invalid email')) return 'Email inválido.';
   if (msg.includes('email not confirmed')) return 'Confirme seu email pelo link que enviamos antes de entrar.';
+  if (msg.includes('email address not authorized')) return 'O envio de confirmação ainda não está liberado para este email. Avise o administrador.';
+  if (msg.includes('rate limit') || msg.includes('email rate limit')) return 'Limite de emails atingido. Aguarde alguns minutos e tente novamente.';
   return message;
 }
 
@@ -274,6 +275,8 @@ export function App() {
   const [authError, setAuthError] = useState('');
   const [authInfo, setAuthInfo] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
+  const [confirmationEmail, setConfirmationEmail] = useState('');
+  const [resendBusy, setResendBusy] = useState(false);
 
   // Instalacao (PWA)
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -574,6 +577,7 @@ export function App() {
     setAuthMode(mode);
     setAuthError('');
     setAuthInfo('');
+    setConfirmationEmail('');
   }
 
   async function handleEmailAuth(event: FormEvent) {
@@ -607,7 +611,8 @@ export function App() {
           return;
         }
         if (!data.session) {
-          setAuthInfo('Cadastro criado. Confirme pelo link enviado ao seu email e depois faça login.');
+          setConfirmationEmail(email);
+          setAuthInfo('Confira a caixa de entrada e o spam. Se o cadastro foi criado, você receberá um link para confirmar o email.');
           setAuthMode('login');
           setFormPass('');
         }
@@ -615,6 +620,7 @@ export function App() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
           setAuthError(friendlyAuthError(error.message));
+          if (error.message.toLowerCase().includes('email not confirmed')) setConfirmationEmail(email);
           return;
         }
       }
@@ -623,14 +629,31 @@ export function App() {
     }
   }
 
+  async function resendConfirmation() {
+    if (!supabase || !confirmationEmail || resendBusy) return;
+    setAuthError('');
+    setAuthInfo('');
+    setResendBusy(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: confirmationEmail,
+        options: { emailRedirectTo: window.location.origin },
+      });
+      if (error) {
+        setAuthError(friendlyAuthError(error.message));
+        return;
+      }
+      setAuthInfo('Novo link solicitado. Confira a caixa de entrada e o spam.');
+    } finally {
+      setResendBusy(false);
+    }
+  }
+
   async function handleGoogle() {
     if (!supabase) return;
     setAuthError('');
     setAuthInfo('');
-    if (!GOOGLE_AUTH_ENABLED) {
-      setAuthError('Login com Google ainda não foi ativado no Supabase. Use email e senha por enquanto.');
-      return;
-    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.origin },
@@ -1364,6 +1387,17 @@ export function App() {
           {authError && <div className="login-error">{authError}</div>}
           {authInfo && <div className="login-info">{authInfo}</div>}
 
+          {confirmationEmail && (
+            <button
+              className="btn ghost"
+              type="button"
+              onClick={resendConfirmation}
+              disabled={resendBusy || !supabaseConfigured}
+            >
+              {resendBusy ? 'Reenviando...' : 'Reenviar email de confirmação'}
+            </button>
+          )}
+
           <button className="btn btn-yellow" type="submit" disabled={authBusy || !supabaseConfigured}>
             {authBusy ? 'Aguarde...' : authMode === 'signup' ? 'Criar conta' : 'Entrar'}
           </button>
@@ -1377,7 +1411,7 @@ export function App() {
               <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.5-5.2l-6.2-5.3C29.2 34.9 26.7 36 24 36c-5.3 0-9.7-2.6-11.3-6.9l-6.5 5C9.5 39.6 16.2 44 24 44z" />
               <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.1-2.2 3.9-4 5.2l6.2 5.3C42.3 35.6 44 30.3 44 24c0-1.3-.1-2.3-.4-3.5z" />
             </svg>
-            {GOOGLE_AUTH_ENABLED ? 'Entrar com Google' : 'Google em configuração'}
+            Entrar com Google
           </button>
 
           <p className="login-foot">Novos cadastros entram como visualização até um admin liberar retirada.</p>
