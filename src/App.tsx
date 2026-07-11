@@ -2374,7 +2374,7 @@ export function App() {
                 </div>
                 <div className="form-group full">
                   <label htmlFor="req-social">Redes Sociais (@)</label>
-                  <input id="req-social" type="text" placeholder="@seu_perfil (opcional)" value={requesterData.social} onChange={(e) => setRequesterData({ ...requesterData, social: e.target.value })} />
+                  <input id="req-social" required type="text" placeholder="@seu_perfil" value={requesterData.social} onChange={(e) => setRequesterData({ ...requesterData, social: e.target.value })} />
                 </div>
                 <div className="form-group full">
                   <label>Data e horário</label>
@@ -2415,11 +2415,11 @@ export function App() {
                     </div>
                     <div className="form-group">
                       <label>E-mail</label>
-                      <input type="email" placeholder="convidado@email.com (opcional)" value={guest.email} onChange={(e) => updateGuest(index, 'email', e.target.value)} />
+                      <input required type="email" placeholder="convidado@email.com" value={guest.email} onChange={(e) => updateGuest(index, 'email', e.target.value)} />
                     </div>
                     <div className="form-group full">
                       <label>Redes Sociais (@)</label>
-                      <input type="text" placeholder="@perfil (opcional)" value={guest.social} onChange={(e) => updateGuest(index, 'social', e.target.value)} />
+                      <input required type="text" placeholder="@perfil" value={guest.social} onChange={(e) => updateGuest(index, 'social', e.target.value)} />
                     </div>
                   </div>
                 </div>
