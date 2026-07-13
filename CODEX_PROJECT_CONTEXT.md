@@ -1,5 +1,15 @@
 # CODEX_PROJECT_CONTEXT
 
+## Atualizacao - 2026-07-13
+
+- O formulario de acesso e gravacao informa que os dados pessoais sao solicitados pela Presidencia da ASSEGO.
+- O frontend envia chaves de idempotencia nas solicitacoes de agendamento e de equipamento.
+- vercel.json e netlify.toml registram cabecalhos de seguranca do frontend.
+- Os scripts security_hardening_phase1.sql e security_hardening_phase2.sql e a nova submit-booking formam uma implantacao em etapas; precisam ser aplicados/publicados no Supabase antes de considerar o hardening ativo em producao.
+- src-tauri e as dependencias Tauri sao o scaffold inicial do aplicativo desktop. O build web esta validado; o executavel nativo ainda depende da instalacao do Rust/Cargo e da validacao especifica do Tauri.
+
+---
+
 Contexto de projeto para o **Codex** (par de IA do Lucas). Leia antes de codar.
 Snapshot fiel ao estado atual em **2026-07-08**. Se algo no código divergir
 deste arquivo, o **código é a fonte da verdade** — e atualize este arquivo.
