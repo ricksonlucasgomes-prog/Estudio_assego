@@ -26,7 +26,6 @@ create table if not exists public.studio_booking_requests (
 
   requester_id       uuid references auth.users(id),
   requester_name     text not null,
-  requester_rg       text,
   requester_cpf      text,
   requester_email    text,
   requester_whatsapp text,
@@ -48,7 +47,6 @@ create table if not exists public.studio_booking_participants (
   booking_request_id uuid not null references public.studio_booking_requests(id) on delete cascade,
 
   full_name text not null,
-  rg        text,
   cpf       text,
   email     text,
   whatsapp  text,
@@ -114,6 +112,15 @@ $$;
 -- migra o sentinela antigo 'pending' -> 'requested' e fixa default/check.
 -- Idempotente: após a 1ª execução, vira no-op.
 -- ---------------------------------------------------------------------
+-- RG deixou de ser coletado. Removemos tambem colunas historicas para
+-- minimizar dados pessoais armazenados e impedir que schemas antigos
+-- continuem exigindo esse campo no backend.
+alter table public.studio_booking_requests
+  drop column if exists requester_rg;
+
+alter table public.studio_booking_participants
+  drop column if exists rg;
+
 update public.studio_booking_requests
   set status = 'requested'
   where status is null or status = 'pending';

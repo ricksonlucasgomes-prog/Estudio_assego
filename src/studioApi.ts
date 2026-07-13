@@ -423,8 +423,14 @@ export async function listEquipmentRequests(): Promise<EquipmentRequest[]> {
   return rows ?? [];
 }
 
-export async function updateEquipmentRequestStatus(id: string, status: EquipmentRequestStatus) {
+export async function updateEquipmentRequestStatus(
+  id: string,
+  status: Extract<EquipmentRequestStatus, 'approved' | 'rejected'>,
+) {
   if (!supabase) throw new Error('Banco de dados não configurado.');
-  const { error } = await supabase.from('studio_equipment_requests').update({ status }).eq('id', id);
+  const { error } = await supabase.rpc('set_equipment_request_status_v1', {
+    p_id: id,
+    p_status: status,
+  });
   if (error) throw new Error(error.message);
 }

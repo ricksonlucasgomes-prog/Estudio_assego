@@ -51,6 +51,9 @@ as $$
   end;
 $$;
 
+revoke all on function public.current_user_role() from public, anon;
+grant execute on function public.current_user_role() to authenticated;
+
 -- 3) current_user_is_booking_approver() e current_user_is_lead_approver()
 --    já aceitam 'developer' diretamente (ver studio_booking.sql e
 --    equipment_access.sql) — nada a fazer aqui.

@@ -4,6 +4,7 @@ import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts'
 
 const ALLOWED_ORIGINS = new Set([
   'https://assegostudio.vercel.app',
+  'https://controle-estudio-assego-privado.vercel.app',
   'http://127.0.0.1:5173',
   'tauri://localhost',
   'http://tauri.localhost',

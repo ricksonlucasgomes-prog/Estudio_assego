@@ -1576,7 +1576,10 @@ export function App() {
     }
   };
 
-  async function decideEquipmentRequest(id: string, status: EquipmentRequestStatus) {
+  async function decideEquipmentRequest(
+    id: string,
+    status: Extract<EquipmentRequestStatus, 'approved' | 'rejected'>,
+  ) {
     if (!isLeadApprover) return;
     setEquipmentActionId(id);
     setEquipmentRequests((current) => current.map((req) => (req.id === id ? { ...req, status } : req)));
@@ -2025,7 +2028,7 @@ export function App() {
                                           <button className="btn btn-outline" type="button" disabled={equipmentActionId === req.id} onClick={() => decideEquipmentRequest(req.id, 'rejected')}>Rejeitar</button>
                                         </>
                                       ) : (
-                                        <button className="btn ghost" type="button" disabled={equipmentActionId === req.id} onClick={() => decideEquipmentRequest(req.id, 'requested')}>Reabrir</button>
+                                        <span className="approver-note">Decisao final registrada.</span>
                                       )
                                     ) : (
                                       <span className="approver-note">Somente Lucas Rickson pode aprovar ou rejeitar.</span>

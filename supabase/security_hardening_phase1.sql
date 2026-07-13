@@ -85,7 +85,7 @@ as $$
   );
 $$;
 
-revoke all on function public.current_user_is_lead_approver() from public;
+revoke all on function public.current_user_is_lead_approver() from public, anon;
 grant execute on function public.current_user_is_lead_approver() to authenticated;
 
 -- Outbox duravel: gravada na mesma transacao do pedido.
@@ -528,7 +528,7 @@ begin
     'signed_at', v_signed_at
   );
 
-  v_hash := encode(digest(convert_to(v_payload::text, 'UTF8'), 'sha256'), 'hex');
+  v_hash := encode(extensions.digest(convert_to(v_payload::text, 'UTF8'), 'sha256'), 'hex');
 
   insert into public.legal_signatures (
     booking_request_id,
