@@ -83,9 +83,17 @@ function validatePayload(body: JsonRecord): {
 
   const date = text(booking.date, 10)
   const time = text(booking.time, 5)
-  const regularSlot = /^(09|10|11|13|14|15|16):00$/.test(time)
-  const afterHoursSlot = /^(17:30|1[89]:(00|30)|2[0-3]:(00|30))$/.test(time)
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || (!regularSlot && !afterHoursSlot)) {
+  const endTime = text(booking.endTime, 5)
+  const regularMorning = /^(09|10|11):00$/.test(time)
+    && /^(10|11|12):00$/.test(endTime)
+    && endTime > time
+  const regularAfternoon = /^(13|14|15|16):00$/.test(time)
+    && /^(14|15|16|17):00$/.test(endTime)
+    && endTime > time
+  const afterHoursSlot = /^(17:30|1[89]:(00|30)|2[0-2]:(00|30)|23:00)$/.test(time)
+    && /^(1[89]:(00|30)|2[0-2]:(00|30)|23:(00|30))$/.test(endTime)
+    && endTime > time
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || (!regularMorning && !regularAfternoon && !afterHoursSlot)) {
     throw new Error('SLOT_INVALID')
   }
 
@@ -205,9 +213,27 @@ async function createMaterialAccessLinks(admin: SupabaseClient, payload: JsonRec
   return links
 }
 
+async function resolveAdminRecipients(admin: SupabaseClient): Promise<string[]> {
+  const recipients = new Set(ADMIN_RECIPIENTS.map((email) => email.toLowerCase()))
+  const { data: profiles, error } = await admin
+    .from('profiles')
+    .select('id')
+    .in('role', ['admin', 'developer'])
+  if (error) throw error
+
+  const users = await Promise.all((profiles ?? []).map(({ id }) => admin.auth.admin.getUserById(id)))
+  users.forEach(({ data, error: userError }) => {
+    if (userError) throw userError
+    const email = data.user?.email?.trim().toLowerCase()
+    if (email) recipients.add(email)
+  })
+  return [...recipients]
+}
+
 async function sendBookingNotificationEmail(
   payload: JsonRecord,
   materialAccessLinks: MaterialAccessLink[],
+  recipients: string[],
 ): Promise<void> {
   const gmailUser = Deno.env.get('GMAIL_USER')
   const gmailPass = Deno.env.get('GMAIL_APP_PASSWORD')
@@ -251,7 +277,7 @@ async function sendBookingNotificationEmail(
   try {
     await client.send({
       from: gmailUser,
-      to: ADMIN_RECIPIENTS,
+      to: recipients,
       subject: `Nova solicitacao de agendamento - ${safeHeader(requester.name)}`,
       content:
         `Nova solicitacao de agendamento no Assego Studio.\n\n` +
@@ -263,7 +289,8 @@ async function sendBookingNotificationEmail(
         `WhatsApp: ${text(requester.whatsapp, 30) || '-'}\n` +
         `Rede social: ${text(requester.social, 120) || '-'}\n\n` +
         `Data: ${text(booking.date, 10)}\n` +
-        `Horario: ${text(booking.time, 5)}\n` +
+        `Horario de inicio: ${text(booking.time, 5)}\n` +
+        `Horario de termino: ${text(booking.endTime, 5)}\n` +
         `Tipo: ${text(booking.time, 5) > '17:00' ? 'Solicitacao excepcional apos as 17h' : 'Horario regular'}\n\n` +
         `===== Programa =====\n` +
         `Nome: ${text(program.name, 160) || '-'}\n` +
@@ -375,7 +402,7 @@ serve(async (req) => {
       if (/duplicate key|studio_booking_active_slot_uniq/i.test(rpcError.message)) {
         return jsonResponse(req, { error: 'Este horario acabou de ser reservado.' }, 409)
       }
-      if (/Data ou horario|Dados obrigatorios|Convidado|assinatura|termo/i.test(rpcError.message)) {
+      if (/Data ou (horario|periodo)|conflita|Dados obrigatorios|Convidado|assinatura|termo/i.test(rpcError.message)) {
         return jsonResponse(req, { error: rpcError.message }, 400)
       }
       throw rpcError
@@ -401,15 +428,36 @@ serve(async (req) => {
       .single()
     if (outboxError || !outbox) throw outboxError ?? new Error('OUTBOX_NOT_FOUND')
 
-    await admin
+    if (outbox.status === 'sent') {
+      return jsonResponse(req, {
+        success: true,
+        booking_id: bookingId,
+        signature_hash: result?.signature_hash,
+        notification_status: 'already_processed',
+      }, 200)
+    }
+
+    const { data: claimedOutbox, error: claimError } = await admin
       .from('notification_outbox')
       .update({ status: 'sending', attempts: Number(outbox.attempts ?? 0) + 1, updated_at: new Date().toISOString() })
       .eq('id', outboxId)
+      .in('status', ['pending', 'failed'])
+      .select('id')
+    if (claimError) throw claimError
+    if (!claimedOutbox?.length) {
+      return jsonResponse(req, {
+        success: true,
+        booking_id: bookingId,
+        signature_hash: result?.signature_hash,
+        notification_status: 'processing',
+      }, 202)
+    }
 
     try {
       const outboxPayload = outbox.payload as JsonRecord
       const materialAccessLinks = await createMaterialAccessLinks(admin, outboxPayload)
-      await sendBookingNotificationEmail(outboxPayload, materialAccessLinks)
+      const recipients = await resolveAdminRecipients(admin)
+      await sendBookingNotificationEmail(outboxPayload, materialAccessLinks, recipients)
       await admin
         .from('notification_outbox')
         .update({

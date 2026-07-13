@@ -20,6 +20,9 @@ import {
   writeLocalStudio,
   listBookingRequests,
   updateBookingStatus,
+  listAppNotifications,
+  markAppNotificationRead,
+  markAllAppNotificationsRead,
   listEquipmentRequests,
   updateEquipmentRequestStatus,
   type Checkout,
@@ -30,6 +33,7 @@ import {
   type StudioState,
   type BookingRequest,
   type BookingStatus,
+  type AppNotification,
   type EquipmentRequest,
   type EquipmentRequestStatus,
 } from './studioApi';
@@ -128,14 +132,26 @@ const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
 
 // Data 'YYYY-MM-DD' + hora 'HH:MM' -> 'dd/mm/aaaa às HH:MM' sem sofrer
 // deslocamento de fuso (parse manual, não via Date).
-function formatBookingWhen(date: string | null, time: string | null): string {
+function formatBookingWhen(date: string | null, time: string | null, endTime?: string | null): string {
   let out = '';
   if (date) {
     const [y, m, d] = date.split('-');
     out = d && m && y ? `${d}/${m}/${y}` : date;
   }
-  if (time) out = out ? `${out} às ${time}` : time;
+  if (time) {
+    const period = endTime ? `${time}–${endTime}` : time;
+    out = out ? `${out} às ${period}` : period;
+  }
   return out || 'Sem data informada';
+}
+
+function timeToMinutes(time: string): number {
+  const match = /^(\d{2}):(\d{2})$/.exec(time);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : -1;
+}
+
+function minutesToTime(minutes: number): string {
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 }
 
 function formatDateInputValue(date: Date): string {
@@ -295,6 +311,14 @@ function friendlyAuthError(message: string) {
   return message;
 }
 
+function friendlyPanelError(error: unknown, fallback: string): string {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  if (/schema cache|does not exist|could not find the table|column .* not found/i.test(message)) {
+    return 'Este recurso aguarda a atualização do servidor. Tente novamente após a implantação.';
+  }
+  return fallback;
+}
+
 export function App() {
   const [studio, setStudio] = useState<StudioState>(() => readJson(STUDIO_KEY, emptyStudioState));
   const [profilePhotos, setProfilePhotos] = useState<Record<string, string>>(() => readJson(PROFILE_KEY, {}));
@@ -307,6 +331,9 @@ export function App() {
   const [googleAvatarUrl, setGoogleAvatarUrl] = useState('');
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [appNotifications, setAppNotifications] = useState<AppNotification[]>([]);
+  const [appNotificationsBusy, setAppNotificationsBusy] = useState(false);
+  const [appNotificationsError, setAppNotificationsError] = useState('');
   const [expandedRequestId, setExpandedRequestId] = useState('');
   const profilePhotoInputRef = useRef<HTMLInputElement>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -367,7 +394,7 @@ export function App() {
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [showLegalPopup, setShowLegalPopup] = useState(false);
   const [requesterData, setRequesterData] = useState({
-    name: '', rg: '', cpf: '', email: '', whatsapp: '', social: '', date: '', time: ''
+    name: '', rg: '', cpf: '', email: '', whatsapp: '', social: '', date: '', time: '', endTime: ''
   });
   const [guestsData, setGuestsData] = useState<{name: string, rg: string, cpf: string, email: string, whatsapp: string, social: string}[]>([]);
 
@@ -460,15 +487,15 @@ export function App() {
   const canSaveConference = canManage && (!conferenceNeedsObservation || Boolean(conferenceObservation));
   const outsideCount = Object.keys(studio.checkouts).length;
   const lastConference = studio.conferences[0];
-  const pendingBookingCount = useMemo(
-    () => bookingRequests.filter((req) => req.status === 'requested').length,
-    [bookingRequests],
-  );
   const pendingEquipmentRequestCount = useMemo(
     () => equipmentRequests.filter((req) => req.status === 'requested').length,
     [equipmentRequests],
   );
-  const totalPendingCount = pendingBookingCount + pendingEquipmentRequestCount;
+  const unreadAppNotificationCount = useMemo(
+    () => appNotifications.filter((notification) => !notification.read_at).length,
+    [appNotifications],
+  );
+  const totalPendingCount = unreadAppNotificationCount + (isAdmin ? pendingEquipmentRequestCount : 0);
   const nextBooking = useMemo(
     () => bookingRequests
       .filter((request) => request.status === 'approved' && request.requested_date)
@@ -1088,7 +1115,7 @@ export function App() {
 
   function resetBookingForm() {
     bookingIdempotencyKey.current = crypto.randomUUID();
-    setRequesterData({ name: '', rg: '', cpf: '', email: userEmail, whatsapp: '', social: '', date: '', time: '' });
+    setRequesterData({ name: '', rg: '', cpf: '', email: userEmail, whatsapp: '', social: '', date: '', time: '', endTime: '' });
     setGuestsData([]);
     setAfterHoursMode(false);
     setProgramName('');
@@ -1149,7 +1176,7 @@ export function App() {
     const selectedDate = afterHoursMode ? '' : requesterData.date;
     if (afterHoursMode) {
       setAfterHoursMode(false);
-      setRequesterData((current) => ({ ...current, date: '', time: '' }));
+      setRequesterData((current) => ({ ...current, date: '', time: '', endTime: '' }));
     }
     setShowAvailability(true);
     setAvailabilitySelectedDate(selectedDate);
@@ -1159,13 +1186,26 @@ export function App() {
 
   function pickAvailabilitySlot(date: string, time: string) {
     setAfterHoursMode(false);
-    setRequesterData((current) => ({ ...current, date, time }));
-    setShowAvailability(false);
+    setRequesterData((current) => ({ ...current, date, time, endTime: minutesToTime(timeToMinutes(time) + 60) }));
+  }
+
+  function regularEndTimeOptions(date: string, startTime: string): string[] {
+    const slots = availabilityByDate[date]?.slots ?? [];
+    const startIndex = slots.findIndex((slot) => slot.time === startTime && slot.available);
+    if (startIndex < 0) return [];
+    const startMinutes = timeToMinutes(startTime);
+    const options: string[] = [];
+    for (let index = startIndex; index < slots.length; index += 1) {
+      const expectedStart = minutesToTime(startMinutes + (index - startIndex) * 60);
+      if (slots[index].time !== expectedStart || !slots[index].available) break;
+      options.push(minutesToTime(startMinutes + (index - startIndex + 1) * 60));
+    }
+    return options;
   }
 
   function toggleAfterHoursMode() {
     setAfterHoursMode((current) => !current);
-    setRequesterData((current) => ({ ...current, date: '', time: '' }));
+    setRequesterData((current) => ({ ...current, date: '', time: '', endTime: '' }));
   }
 
   function selectBookingMaterials(event: ChangeEvent<HTMLInputElement>) {
@@ -1236,15 +1276,24 @@ export function App() {
       return;
     }
 
-    if (!requesterData.date || !requesterData.time) {
+    if (!requesterData.date || !requesterData.time || !requesterData.endTime) {
       alert(afterHoursMode
-        ? 'Informe a data e o horário após as 17h antes de enviar.'
-        : 'Escolha uma data e horário disponível na agenda antes de enviar.');
+        ? 'Informe a data e os horários de início e término antes de enviar.'
+        : 'Escolha a data e o período completo disponível na agenda antes de enviar.');
       return;
     }
 
-    if (afterHoursMode && !/^(17:30|1[89]:(00|30)|2[0-3]:(00|30))$/.test(requesterData.time)) {
-      alert('O horário excepcional deve estar entre 17h30 e 23h30, em intervalos de 30 minutos.');
+    if (afterHoursMode && (
+      !/^(17:30|1[89]:(00|30)|2[0-2]:(00|30)|23:00)$/.test(requesterData.time)
+      || !/^(1[8-9]:(00|30)|2[0-2]:(00|30)|23:(00|30))$/.test(requesterData.endTime)
+      || timeToMinutes(requesterData.endTime) <= timeToMinutes(requesterData.time)
+    )) {
+      alert('Informe um período válido após as 17h, em intervalos de 30 minutos, com término até 23h30.');
+      return;
+    }
+
+    if (!afterHoursMode && !regularEndTimeOptions(requesterData.date, requesterData.time).includes(requesterData.endTime)) {
+      alert('O período escolhido contém um horário indisponível. Selecione novamente na agenda.');
       return;
     }
 
@@ -1336,6 +1385,7 @@ export function App() {
             booking_details: {
               date: requesterData.date,
               time: requesterData.time,
+              endTime: requesterData.endTime,
               scheduleType: afterHoursMode ? 'after_hours' : 'regular',
               program: {
                 name: programName.trim(),
@@ -1367,7 +1417,7 @@ export function App() {
       }
 
       if (result.notification_status === 'pending_retry') {
-        alert('Solicitação registrada e assinada. O aviso por email está aguardando uma nova tentativa automática.');
+        alert('Solicitação registrada e assinada. O aviso por email ficou pendente para uma nova tentativa de envio.');
       } else if (result.notification_status === 'sent') {
         alert('Sucesso! Sua solicitação assinada foi enviada e o aviso por email foi processado.');
       } else {
@@ -1395,6 +1445,66 @@ export function App() {
     setGuestsData((current) => current.map((guest, i) => (i === index ? { ...guest, [field]: value } : guest)));
   };
 
+  async function loadAppNotificationInbox() {
+    if (!supabase || !isAuthed) return;
+    setAppNotificationsBusy(true);
+    setAppNotificationsError('');
+    try {
+      setAppNotifications(await listAppNotifications());
+    } catch (error: any) {
+      setAppNotificationsError(friendlyPanelError(error, 'Não foi possível carregar suas notificações. Tente novamente.'));
+    } finally {
+      setAppNotificationsBusy(false);
+    }
+  }
+
+  async function readAppNotification(id: string) {
+    const readAt = new Date().toISOString();
+    setAppNotifications((current) => current.map((item) => (
+      item.id === id ? { ...item, read_at: item.read_at || readAt } : item
+    )));
+    try {
+      await markAppNotificationRead(id);
+    } catch {
+      loadAppNotificationInbox();
+    }
+  }
+
+  async function readAllAppNotifications() {
+    const readAt = new Date().toISOString();
+    setAppNotifications((current) => current.map((item) => ({ ...item, read_at: item.read_at || readAt })));
+    try {
+      await markAllAppNotificationsRead();
+    } catch {
+      loadAppNotificationInbox();
+    }
+  }
+
+  useEffect(() => {
+    const client = supabase;
+    if (!client || !isAuthed || !userId) {
+      setAppNotifications([]);
+      return;
+    }
+
+    loadAppNotificationInbox();
+    const timer = window.setInterval(loadAppNotificationInbox, 15000);
+    const channel = client
+      .channel(`app-notifications-${userId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'app_notifications', filter: `recipient_id=eq.${userId}` },
+        () => loadAppNotificationInbox(),
+      )
+      .subscribe();
+
+    return () => {
+      window.clearInterval(timer);
+      client.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthed, userId]);
+
   // ==========================================
   // PAINEL DE ADMIN: solicitações de agendamento
   // ==========================================
@@ -1405,13 +1515,13 @@ export function App() {
     try {
       setBookingRequests(await listBookingRequests());
     } catch (error: any) {
-      setBookingListError(error?.message || 'Não foi possível carregar as solicitações.');
+      setBookingListError(friendlyPanelError(error, 'Não foi possível carregar as solicitações. Tente novamente.'));
     } finally {
       setBookingListBusy(false);
     }
   };
 
-  async function decideBooking(id: string, status: BookingStatus) {
+  async function decideBooking(id: string, status: Extract<BookingStatus, 'approved' | 'rejected'>) {
     // Reforço no client: só o aprovador único decide. O RLS também bloqueia
     // no servidor (booking_req_update_admin usa current_user_is_lead_approver).
     if (!isLeadApprover) return;
@@ -1419,8 +1529,16 @@ export function App() {
     // Atualização otimista; se falhar, recarrega do servidor.
     setBookingRequests((current) => current.map((req) => (req.id === id ? { ...req, status } : req)));
     try {
-      await updateBookingStatus(id, status);
-      flash(status === 'approved' ? 'Solicitação aprovada' : 'Solicitação rejeitada');
+      const result = await updateBookingStatus(id, status);
+      if (result.notificationStatus === 'pending_retry') {
+        flash('Decisão salva e aviso no app criado; email aguardando nova tentativa');
+      } else if (result.notificationStatus === 'processing') {
+        flash('Decisão salva; envio do email já está em processamento');
+      } else {
+        flash(status === 'approved'
+          ? 'Solicitação aprovada; solicitante avisado'
+          : 'Solicitação rejeitada; solicitante avisado');
+      }
     } catch (error: any) {
       flash(error?.message || 'Falha ao atualizar solicitação');
       loadBookingRequests();
@@ -1452,7 +1570,7 @@ export function App() {
     try {
       setEquipmentRequests(await listEquipmentRequests());
     } catch (error: any) {
-      setEquipmentListError(error?.message || 'Não foi possível carregar os pedidos de equipamento.');
+      setEquipmentListError(friendlyPanelError(error, 'Não foi possível carregar os pedidos de equipamento. Tente novamente.'));
     } finally {
       setEquipmentListBusy(false);
     }
@@ -1680,8 +1798,7 @@ export function App() {
             </div>
           </button>
           <div className="session">
-            {isAdmin && (
-              <div className="notif-wrap">
+            <div className="notif-wrap">
                 <button
                   type="button"
                   className="notif-bell"
@@ -1697,11 +1814,59 @@ export function App() {
                 {showNotifications && (
                   <>
                     <div className="account-menu-backdrop" onClick={() => setShowNotifications(false)} />
-                    <div id="notifications-panel" className="notif-panel" role="menu">
+                    <div id="notifications-panel" className="notif-panel" role="region" aria-label="Notificações">
                       <div className="notif-panel__head">
                         <div>
-                          <strong>Notificações</strong>
-                          <span>Solicitações de agendamento — visível para Lucas, Badu, Sérgio Vinicius e Sgt. Tiago Raiz.</span>
+                          <strong>Seus avisos</strong>
+                          <span>Atualizações de solicitações e decisões relacionadas à sua conta.</span>
+                        </div>
+                        <div className="notif-panel__head-actions">
+                          <button className="btn ghost" type="button" onClick={loadAppNotificationInbox} disabled={appNotificationsBusy}>
+                            {appNotificationsBusy ? 'Atualizando…' : 'Atualizar'}
+                          </button>
+                          {unreadAppNotificationCount > 0 && (
+                            <button className="btn ghost" type="button" onClick={readAllAppNotifications}>Marcar todas como lidas</button>
+                          )}
+                        </div>
+                      </div>
+
+                      {appNotificationsError && <p className="out-count">{appNotificationsError}</p>}
+                      {!appNotificationsBusy && !appNotificationsError && appNotifications.length === 0 && (
+                        <p className="guest-empty">Você ainda não possui avisos.</p>
+                      )}
+                      <div className="app-notification-list">
+                        {appNotifications.map((notification) => (
+                          <button
+                            type="button"
+                            className={`app-notification ${notification.read_at ? 'is-read' : 'is-unread'}`}
+                            key={notification.id}
+                            onClick={() => readAppNotification(notification.id)}
+                          >
+                            <span className="app-notification__icon" aria-hidden="true">
+                              {notification.type === 'booking_approved'
+                                ? <ShieldCheck size={18} />
+                                : notification.type === 'booking_rejected'
+                                  ? <X size={18} />
+                                  : <CalendarDays size={18} />}
+                            </span>
+                            <span className="app-notification__content">
+                              <span className="app-notification__title">
+                                <strong>{notification.title}</strong>
+                                {!notification.read_at && <span className="app-notification__dot" aria-label="Não lida" />}
+                              </span>
+                              <span>{notification.message}</span>
+                              <small>{formatDateTime(new Date(notification.created_at).getTime())}</small>
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+
+                      {isAdmin && (
+                        <>
+                      <div className="notif-panel__head notif-panel__head--secondary">
+                        <div>
+                          <strong>Solicitações de gravação</strong>
+                          <span>Visível para o Dev e administradores; somente o Dev pode decidir.</span>
                         </div>
                         <button className="btn ghost" type="button" onClick={loadBookingRequests} disabled={bookingListBusy}>
                           {bookingListBusy ? 'Atualizando…' : 'Atualizar'}
@@ -1721,7 +1886,7 @@ export function App() {
                               <div className="booking-item__head">
                                 <div className="booking-item__who">
                                   <strong>{req.requester_name}</strong>
-                                  <span className="booking-item__when">{formatBookingWhen(req.requested_date, req.requested_time)}</span>
+                                  <span className="booking-item__when">{formatBookingWhen(req.requested_date, req.requested_time, req.requested_end_time)}</span>
                                 </div>
                                 <div className="booking-item__badges">
                                   {req.requested_time && req.requested_time > '17:00' && (
@@ -1757,6 +1922,7 @@ export function App() {
                                       <span><b>CPF</b>{req.requester_cpf || '-'}</span>
                                       <span><b>Rede social</b>{req.requester_social || '-'}</span>
                                       <span><b>Tipo de horário</b>{req.requested_time && req.requested_time > '17:00' ? 'Excepcional — após as 17h' : 'Horário regular'}</span>
+                                      <span><b>Período solicitado</b>{formatBookingWhen(req.requested_date, req.requested_time, req.requested_end_time)}</span>
                                     </div>
                                   </div>
 
@@ -1788,7 +1954,7 @@ export function App() {
                                           <button className="btn btn-outline" type="button" disabled={bookingActionId === req.id} onClick={() => decideBooking(req.id, 'rejected')}>Rejeitar</button>
                                         </>
                                       ) : (
-                                        <button className="btn ghost" type="button" disabled={bookingActionId === req.id} onClick={() => decideBooking(req.id, 'requested')}>Reabrir</button>
+                                        <span className="approver-note">Decisão registrada e comunicada ao solicitante.</span>
                                       )
                                     ) : (
                                       <span className="approver-note">Somente Lucas Rickson pode aprovar ou rejeitar.</span>
@@ -1873,11 +2039,12 @@ export function App() {
                           );
                         })}
                       </div>
+                        </>
+                      )}
                     </div>
                   </>
                 )}
-              </div>
-            )}
+            </div>
 
             <button
               type="button"
@@ -2015,7 +2182,7 @@ export function App() {
                   <p className="dashboard-card__label">Próxima gravação</p>
                   {nextBooking ? (
                     <>
-                      <strong>{formatBookingWhen(nextBooking.requested_date, nextBooking.requested_time)}</strong>
+                      <strong>{formatBookingWhen(nextBooking.requested_date, nextBooking.requested_time, nextBooking.requested_end_time)}</strong>
                       <span>{nextBooking.requester_name}</span>
                     </>
                   ) : (
@@ -2616,11 +2783,11 @@ export function App() {
                   <input id="req-social" required type="text" placeholder="@seu_perfil" value={requesterData.social} onChange={(e) => setRequesterData({ ...requesterData, social: e.target.value })} />
                 </div>
                 <div className="form-group full">
-                  <label>Data e horário</label>
+                  <label>Data, horário de início e término</label>
                   <button type="button" className="availability-trigger" onClick={openAvailabilityPopup}>
-                    {!afterHoursMode && requesterData.date && requesterData.time
-                      ? formatBookingWhen(requesterData.date, requesterData.time)
-                      : 'Escolher data e horário disponível'}
+                    {!afterHoursMode && requesterData.date && requesterData.time && requesterData.endTime
+                      ? formatBookingWhen(requesterData.date, requesterData.time, requesterData.endTime)
+                      : 'Escolher data e período disponível'}
                   </button>
                   <div className={`after-hours-request ${afterHoursMode ? 'after-hours-request--open' : ''}`}>
                     <button
@@ -2643,7 +2810,7 @@ export function App() {
                     </button>
                     {afterHoursMode && (
                       <div id="after-hours-fields" className="after-hours-request__fields">
-                        <p>Escolha uma data e um horário entre 17h30 e 23h30. Esta solicitação depende de aprovação e não representa confirmação automática da reserva.</p>
+                        <p>Escolha uma data e informe o início e o término do programa, entre 17h30 e 23h30. Esta solicitação depende de aprovação e não representa confirmação automática da reserva.</p>
                         <div className="after-hours-request__grid">
                           <div className="form-group">
                             <label htmlFor="after-hours-date">Data pretendida</label>
@@ -2658,16 +2825,29 @@ export function App() {
                             />
                           </div>
                           <div className="form-group">
-                            <label htmlFor="after-hours-time">Horário pretendido</label>
+                            <label htmlFor="after-hours-start-time">Horário de início</label>
                             <input
-                              id="after-hours-time"
+                              id="after-hours-start-time"
                               aria-required="true"
                               type="time"
                               min="17:30"
-                              max="23:30"
+                              max="23:00"
                               step="1800"
                               value={requesterData.time}
-                              onChange={(event) => setRequesterData({ ...requesterData, time: event.target.value })}
+                              onChange={(event) => setRequesterData({ ...requesterData, time: event.target.value, endTime: '' })}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label htmlFor="after-hours-end-time">Horário de término</label>
+                            <input
+                              id="after-hours-end-time"
+                              aria-required="true"
+                              type="time"
+                              min={requesterData.time ? minutesToTime(timeToMinutes(requesterData.time) + 30) : '18:00'}
+                              max="23:30"
+                              step="1800"
+                              value={requesterData.endTime}
+                              onChange={(event) => setRequesterData({ ...requesterData, endTime: event.target.value })}
                             />
                           </div>
                         </div>
@@ -2999,7 +3179,7 @@ export function App() {
                           key={slot.time}
                           type="button"
                           disabled={!slot.available}
-                          className={`availability-slot ${slot.available ? 'availability-slot--free' : 'availability-slot--busy'}`}
+                          className={`availability-slot ${slot.available ? 'availability-slot--free' : 'availability-slot--busy'} ${requesterData.date === availabilitySelectedDate && requesterData.time === slot.time ? 'availability-slot--selected' : ''}`}
                           onClick={() => pickAvailabilitySlot(availabilitySelectedDate, slot.time)}
                         >
                           {slot.time}
@@ -3009,6 +3189,29 @@ export function App() {
                         <span className="availability-slots-empty">Estúdio fechado neste dia.</span>
                       )}
                     </div>
+                    {requesterData.date === availabilitySelectedDate && requesterData.time && (
+                      <div className="availability-period">
+                        <div>
+                          <span>Início</span>
+                          <strong>{requesterData.time}</strong>
+                        </div>
+                        <label htmlFor="availability-end-time">
+                          Término
+                          <select
+                            id="availability-end-time"
+                            value={requesterData.endTime}
+                            onChange={(event) => setRequesterData((current) => ({ ...current, endTime: event.target.value }))}
+                          >
+                            {regularEndTimeOptions(availabilitySelectedDate, requesterData.time).map((endTime) => (
+                              <option key={endTime} value={endTime}>{endTime}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <button type="button" className="btn btn-yellow" onClick={() => setShowAvailability(false)}>
+                          Confirmar período
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </>

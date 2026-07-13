@@ -10,6 +10,12 @@ entrypoint = "./functions/submit-booking/index.ts"
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/submit-booking/*.html" ]
 
+[functions.decide-booking]
+enabled = true
+verify_jwt = false
+import_map = "./functions/decide-booking/deno.json"
+entrypoint = "./functions/decide-booking/index.ts"
+
 [functions.studio-availability]
 enabled = true
 verify_jwt = false

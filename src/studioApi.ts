@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { edgeFunctionUrl, supabase } from './supabase';
 
 export type Checkout = {
   user: string;
@@ -287,6 +287,17 @@ export async function deleteMedia(id: string) {
 
 export type BookingStatus = 'requested' | 'approved' | 'rejected' | 'cancelled';
 
+export type AppNotification = {
+  id: string;
+  type: 'booking_created' | 'booking_approved' | 'booking_rejected';
+  title: string;
+  message: string;
+  booking_request_id: string | null;
+  metadata: Record<string, unknown>;
+  read_at: string | null;
+  created_at: string;
+};
+
 export type BookingParticipant = {
   id: string;
   full_name: string;
@@ -307,6 +318,7 @@ export type BookingRequest = {
   requester_social: string | null;
   requested_date: string | null;
   requested_time: string | null;
+  requested_end_time: string | null;
   status: BookingStatus;
   created_at: string;
   participants: BookingParticipant[];
@@ -320,7 +332,7 @@ export async function listBookingRequests(): Promise<BookingRequest[]> {
     supabase
       .from('studio_booking_requests')
       .select(
-        'id, requester_name, requester_rg, requester_cpf, requester_email, requester_whatsapp, requester_social, requested_date, requested_time, status, created_at, studio_booking_participants(id, full_name, rg, cpf, email, whatsapp, social)',
+        'id, requester_name, requester_rg, requester_cpf, requester_email, requester_whatsapp, requester_social, requested_date, requested_time, requested_end_time, status, created_at, studio_booking_participants(id, full_name, rg, cpf, email, whatsapp, social)',
       )
       .order('created_at', { ascending: false })
       .limit(100),
@@ -331,9 +343,55 @@ export async function listBookingRequests(): Promise<BookingRequest[]> {
   }));
 }
 
-export async function updateBookingStatus(id: string, status: BookingStatus) {
+export async function updateBookingStatus(
+  id: string,
+  status: Extract<BookingStatus, 'approved' | 'rejected'>,
+): Promise<{ notificationStatus: string }> {
   if (!supabase) throw new Error('Banco de dados não configurado.');
-  const { error } = await supabase.from('studio_booking_requests').update({ status }).eq('id', id);
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  if (!token) throw new Error('Sua sessão expirou. Faça login novamente.');
+
+  const response = await fetch(edgeFunctionUrl('decide-booking'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ bookingId: id, status }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'Não foi possível registrar a decisão.');
+  return { notificationStatus: result.notification_status ?? 'unknown' };
+}
+
+export async function listAppNotifications(): Promise<AppNotification[]> {
+  if (!supabase) return [];
+  return await selectOrThrow<AppNotification[]>(
+    supabase
+      .from('app_notifications')
+      .select('id, type, title, message, booking_request_id, metadata, read_at, created_at')
+      .order('created_at', { ascending: false })
+      .limit(50),
+  ) ?? [];
+}
+
+export async function markAppNotificationRead(id: string): Promise<void> {
+  if (!supabase) throw new Error('Banco de dados não configurado.');
+  const { error } = await supabase
+    .from('app_notifications')
+    .update({ read_at: new Date().toISOString() })
+    .eq('id', id)
+    .is('read_at', null);
+  if (error) throw new Error(error.message);
+}
+
+export async function markAllAppNotificationsRead(): Promise<void> {
+  if (!supabase) throw new Error('Banco de dados não configurado.');
+  const { error } = await supabase
+    .from('app_notifications')
+    .update({ read_at: new Date().toISOString() })
+    .is('read_at', null);
   if (error) throw new Error(error.message);
 }
 

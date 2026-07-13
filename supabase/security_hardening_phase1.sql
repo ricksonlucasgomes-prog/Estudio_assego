@@ -91,7 +91,7 @@ grant execute on function public.current_user_is_lead_approver() to authenticate
 -- Outbox duravel: gravada na mesma transacao do pedido.
 create table if not exists public.notification_outbox (
   id uuid primary key default gen_random_uuid(),
-  event_type text not null check (event_type in ('booking_created', 'equipment_request_created')),
+  event_type text not null check (event_type in ('booking_created', 'booking_status_changed', 'equipment_request_created')),
   aggregate_id uuid not null,
   payload jsonb not null,
   status text not null default 'pending'
@@ -109,9 +109,86 @@ alter table public.notification_outbox enable row level security;
 revoke all on public.notification_outbox from anon, authenticated;
 grant all on public.notification_outbox to service_role;
 
+-- Caixa de notificacoes persistente exibida no sininho do aplicativo.
+create table if not exists public.app_notifications (
+  id uuid primary key default gen_random_uuid(),
+  recipient_id uuid not null references auth.users(id) on delete cascade,
+  event_key text not null,
+  type text not null check (type in ('booking_created', 'booking_approved', 'booking_rejected')),
+  title text not null,
+  message text not null,
+  booking_request_id uuid references public.studio_booking_requests(id) on delete cascade,
+  metadata jsonb not null default '{}'::jsonb,
+  read_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (recipient_id, event_key)
+);
+
+create index if not exists app_notifications_recipient_created_idx
+  on public.app_notifications (recipient_id, created_at desc);
+
+alter table public.app_notifications enable row level security;
+revoke all on public.app_notifications from anon, authenticated;
+grant select on public.app_notifications to authenticated;
+grant update (read_at) on public.app_notifications to authenticated;
+grant all on public.app_notifications to service_role;
+
+drop policy if exists "app_notifications_select_own" on public.app_notifications;
+drop policy if exists "app_notifications_mark_own" on public.app_notifications;
+
+create policy "app_notifications_select_own" on public.app_notifications
+for select to authenticated
+using (recipient_id = auth.uid());
+
+create policy "app_notifications_mark_own" on public.app_notifications
+for update to authenticated
+using (recipient_id = auth.uid())
+with check (recipient_id = auth.uid());
+
+do $$
+begin
+  begin
+    alter publication supabase_realtime add table public.app_notifications;
+  exception
+    when duplicate_object then null;
+  end;
+end;
+$$;
+
+-- Atualiza instalacoes onde notification_outbox ja existia com o CHECK antigo.
+do $$
+declare
+  v_constraint text;
+begin
+  select c.conname into v_constraint
+  from pg_constraint c
+  where c.conrelid = 'public.notification_outbox'::regclass
+    and c.contype = 'c'
+    and pg_get_constraintdef(c.oid) ilike '%event_type%';
+
+  if v_constraint is not null then
+    execute format('alter table public.notification_outbox drop constraint %I', v_constraint);
+  end if;
+
+  alter table public.notification_outbox
+    add constraint notification_outbox_event_type_check
+    check (event_type in ('booking_created', 'booking_status_changed', 'equipment_request_created'));
+exception
+  when duplicate_object then null;
+end;
+$$;
+
 -- Idempotencia para impedir pedidos duplicados em reenvios/timeouts.
 alter table public.studio_booking_requests
   add column if not exists idempotency_key uuid;
+
+alter table public.studio_booking_requests
+  add column if not exists requested_end_time text;
+
+update public.studio_booking_requests
+set requested_end_time = to_char(requested_time::time + interval '1 hour', 'HH24:MI')
+where requested_end_time is null
+  and requested_time ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$';
 
 create unique index if not exists studio_booking_request_idempotency_uniq
   on public.studio_booking_requests (requester_id, idempotency_key)
@@ -245,6 +322,7 @@ declare
   v_signed_at timestamptz := clock_timestamp();
   v_requested_date date;
   v_requested_time text;
+  v_requested_end_time text;
   v_requester_name text;
   v_requester_rg text;
   v_requester_cpf text;
@@ -322,14 +400,48 @@ begin
   end;
 
   v_requested_time := trim(coalesce(p_booking->>'time', ''));
+  v_requested_end_time := trim(coalesce(p_booking->>'endTime', ''));
   if v_requested_date < current_date
     or v_requested_date > current_date + 365
     or not (
-      v_requested_time in ('09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00')
-      or v_requested_time ~ '^(17:30|1[89]:(00|30)|2[0-3]:(00|30))$'
+      (
+        v_requested_time in ('09:00', '10:00', '11:00')
+        and v_requested_end_time in ('10:00', '11:00', '12:00')
+        and v_requested_end_time > v_requested_time
+      )
+      or (
+        v_requested_time in ('13:00', '14:00', '15:00', '16:00')
+        and v_requested_end_time in ('14:00', '15:00', '16:00', '17:00')
+        and v_requested_end_time > v_requested_time
+      )
+      or (
+        v_requested_time ~ '^(17:30|1[89]:(00|30)|2[0-2]:(00|30)|23:00)$'
+        and v_requested_end_time ~ '^(1[89]:(00|30)|2[0-2]:(00|30)|23:(00|30))$'
+        and v_requested_end_time > v_requested_time
+      )
     )
   then
-    raise exception 'Data ou horario fora da agenda permitida.';
+    raise exception 'Data ou periodo fora da agenda permitida.';
+  end if;
+
+  -- Serializa pedidos do mesmo dia e impede qualquer sobreposicao de periodo.
+  perform pg_advisory_xact_lock(hashtext(v_requested_date::text));
+  if exists (
+    select 1
+    from public.studio_booking_requests r
+    where r.requested_date = v_requested_date
+      and r.status in ('requested', 'approved')
+      and r.requested_time < v_requested_end_time
+      and coalesce(
+        r.requested_end_time,
+        case
+          when r.requested_time ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+            then to_char(r.requested_time::time + interval '1 hour', 'HH24:MI')
+          else r.requested_time
+        end
+      ) > v_requested_time
+  ) then
+    raise exception 'O periodo solicitado conflita com outro agendamento ativo.';
   end if;
 
   if jsonb_typeof(coalesce(p_guests, '[]'::jsonb)) <> 'array' then
@@ -364,6 +476,7 @@ begin
     requester_social,
     requested_date,
     requested_time,
+    requested_end_time,
     status,
     lgpd_accepted_at,
     idempotency_key
@@ -377,6 +490,7 @@ begin
     v_requester_social,
     v_requested_date,
     v_requested_time,
+    v_requested_end_time,
     'requested',
     v_signed_at,
     p_idempotency_key
@@ -409,6 +523,7 @@ begin
     'booking_details', jsonb_build_object(
       'date', v_requested_date,
       'time', v_requested_time,
+      'endTime', v_requested_end_time,
       'scheduleType', case when v_requested_time > '17:00' then 'after_hours' else 'regular' end,
       'program', coalesce(p_booking->'program', '{}'::jsonb),
       'materials', coalesce(p_booking->'materials', '[]'::jsonb),
@@ -453,6 +568,27 @@ begin
   values ('booking_created', v_booking_id, v_payload)
   returning id into v_outbox_id;
 
+  insert into public.app_notifications (
+    recipient_id,
+    event_key,
+    type,
+    title,
+    message,
+    booking_request_id,
+    metadata
+  )
+  select
+    p.id,
+    'booking:' || v_booking_id::text || ':created',
+    'booking_created',
+    'Nova solicitacao de gravacao',
+    v_requester_name || ' solicitou o estudio para ' || to_char(v_requested_date, 'DD/MM/YYYY') || ', das ' || v_requested_time || ' as ' || v_requested_end_time || '.',
+    v_booking_id,
+    jsonb_build_object('date', v_requested_date, 'time', v_requested_time, 'endTime', v_requested_end_time, 'requesterName', v_requester_name)
+  from public.profiles p
+  where p.role in ('admin', 'developer')
+  on conflict (recipient_id, event_key) do nothing;
+
   return jsonb_build_object(
     'booking_id', v_booking_id,
     'signature_hash', v_hash,
@@ -469,29 +605,102 @@ grant execute on function public.create_signed_booking_v1(
   uuid, text, uuid, jsonb, jsonb, jsonb, jsonb, text, text
 ) to service_role;
 
--- Alteracao de status passa por RPC e nao permite editar PII.
-create or replace function public.set_booking_status_v1(p_id uuid, p_status text)
-returns void
+-- Alteracao de status, aviso no app e outbox de email na mesma transacao.
+drop function if exists public.set_booking_status_v1(uuid, text);
+create function public.set_booking_status_v1(p_id uuid, p_status text)
+returns jsonb
 language plpgsql
 security definer
 set search_path = pg_catalog, public
 as $$
+declare
+  v_booking public.studio_booking_requests%rowtype;
+  v_outbox_id uuid;
+  v_payload jsonb;
+  v_status_label text;
 begin
   if not public.current_user_is_lead_approver() then
     raise exception 'Apenas o aprovador principal pode alterar a solicitacao.';
   end if;
 
-  if p_status not in ('approved', 'rejected', 'cancelled') then
+  if p_status not in ('approved', 'rejected') then
     raise exception 'Status invalido.';
+  end if;
+
+  select * into v_booking
+  from public.studio_booking_requests
+  where id = p_id
+  for update;
+
+  if not found then
+    raise exception 'Solicitacao inexistente.';
+  end if;
+
+  if v_booking.status = p_status then
+    select id into v_outbox_id
+    from public.notification_outbox
+    where event_type = 'booking_status_changed'
+      and aggregate_id = p_id;
+
+    return jsonb_build_object(
+      'booking_id', p_id,
+      'status', p_status,
+      'outbox_id', v_outbox_id,
+      'idempotent_replay', true
+    );
+  end if;
+
+  if v_booking.status <> 'requested' then
+    raise exception 'Solicitacao ja finalizada.';
   end if;
 
   update public.studio_booking_requests
   set status = p_status
-  where id = p_id and status = 'requested';
+  where id = p_id;
 
-  if not found then
-    raise exception 'Solicitacao inexistente ou ja finalizada.';
-  end if;
+  v_status_label := case when p_status = 'approved' then 'aprovada' else 'rejeitada' end;
+  v_payload := jsonb_build_object(
+    'booking_id', p_id,
+    'status', p_status,
+    'requester_id', v_booking.requester_id,
+    'requester_name', v_booking.requester_name,
+    'requester_email', v_booking.requester_email,
+    'requested_date', v_booking.requested_date,
+    'requested_time', v_booking.requested_time,
+    'requested_end_time', v_booking.requested_end_time
+  );
+
+  insert into public.app_notifications (
+    recipient_id,
+    event_key,
+    type,
+    title,
+    message,
+    booking_request_id,
+    metadata
+  ) values (
+    v_booking.requester_id,
+    'booking:' || p_id::text || ':status:' || p_status,
+    case when p_status = 'approved' then 'booking_approved' else 'booking_rejected' end,
+    case when p_status = 'approved' then 'Gravacao aprovada' else 'Solicitacao nao aprovada' end,
+    'Sua solicitacao para ' || to_char(v_booking.requested_date, 'DD/MM/YYYY') || ', das ' || v_booking.requested_time || ' as ' || coalesce(v_booking.requested_end_time, 'horario nao informado') || ', foi ' || v_status_label || '.',
+    p_id,
+    jsonb_build_object('date', v_booking.requested_date, 'time', v_booking.requested_time, 'endTime', v_booking.requested_end_time, 'status', p_status)
+  )
+  on conflict (recipient_id, event_key) do nothing;
+
+  insert into public.notification_outbox (event_type, aggregate_id, payload)
+  values ('booking_status_changed', p_id, v_payload)
+  on conflict (event_type, aggregate_id)
+  do update set payload = excluded.payload, updated_at = now()
+  returning id into v_outbox_id;
+
+  return jsonb_build_object(
+    'booking_id', p_id,
+    'status', p_status,
+    'outbox_id', v_outbox_id,
+    'idempotent_replay', false
+  );
 end;
 $$;
 
