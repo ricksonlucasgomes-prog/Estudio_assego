@@ -1923,7 +1923,7 @@ footer {
   box-shadow: 0 8px 24px rgba(var(--black-rgb), .45);
 }
 .install-fab:hover { background: var(--accent-bright); }
-.install-fab-icon { font-size: 18px; line-height: 1; }
+.install-fab-icon { flex: 0 0 auto; }
 
 /* ===== Modal instrucao iOS ===== */
 .ios-hint {
@@ -2135,9 +2135,12 @@ footer {
 }
 
 .assego-marquee__item::before {
-  content: "●";
-  color: var(--accent-bright);
-  font-size: 10px;
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-bright);
+  flex: 0 0 auto;
 }
 
 .assego-marquee:hover .assego-marquee__track {
@@ -2821,6 +2824,12 @@ footer {
   margin-top: 8px;
   color: var(--muted);
   font-size: 13px;
+}
+
+.booking-item__contact span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .booking-item__guests { margin-top: 8px; font-size: 13px; }

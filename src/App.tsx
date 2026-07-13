@@ -1,5 +1,5 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, ClipboardCheck, PackageCheck, Video, CalendarDays, Camera, LogOut, ChevronRight, Clock3, Radio, ShieldCheck, Package, ArrowRight, Activity, ScanFace, X, type LucideIcon } from 'lucide-react';
+import { Bell, ClipboardCheck, PackageCheck, Video, CalendarDays, Camera, LogOut, ChevronRight, ChevronUp, ChevronDown, Clock3, Radio, ShieldCheck, Package, ArrowRight, Activity, ScanFace, Download, Mail, MessageCircle, X, type LucideIcon } from 'lucide-react';
 import { edgeFunctionUrl, supabase, supabaseConfigured, type Profile, type UserRole } from './supabase';
 import { TermsScrollPopup } from './TermsScrollPopup';
 import { BOOKING_TERMS, EQUIPMENT_TERMS } from './termsContent';
@@ -1344,7 +1344,7 @@ export function App() {
 
   const installFab = canShowInstall ? (
     <button className="install-fab" type="button" onClick={handleInstallClick}>
-      <span className="install-fab-icon" aria-hidden="true">⭳</span>
+      <Download className="install-fab-icon" size={18} aria-hidden="true" />
       Instalar app
     </button>
   ) : null;
@@ -1521,8 +1521,8 @@ export function App() {
                               </div>
 
                               <div className="booking-item__contact">
-                                {req.requester_whatsapp && <span>📱 {req.requester_whatsapp}</span>}
-                                {req.requester_email && <span>✉ {req.requester_email}</span>}
+                                {req.requester_whatsapp && <span><MessageCircle size={14} aria-hidden="true" />{req.requester_whatsapp}</span>}
+                                {req.requester_email && <span><Mail size={14} aria-hidden="true" />{req.requester_email}</span>}
                               </div>
 
                               <button
@@ -1530,7 +1530,7 @@ export function App() {
                                 className="btn ghost btn-block booking-item__expand"
                                 onClick={() => setExpandedRequestId(expanded ? '' : req.id)}
                               >
-                                {expanded ? 'Recolher ▲' : 'Expandir ▼'}
+                                {expanded ? <>Recolher <ChevronUp size={16} aria-hidden="true" /></> : <>Expandir <ChevronDown size={16} aria-hidden="true" /></>}
                               </button>
 
                               {expanded && (
@@ -1622,7 +1622,7 @@ export function App() {
                               </div>
 
                               <div className="booking-item__contact">
-                                {req.requester_email && <span>✉ {req.requester_email}</span>}
+                                {req.requester_email && <span><Mail size={14} aria-hidden="true" />{req.requester_email}</span>}
                               </div>
 
                               <button
@@ -1630,7 +1630,7 @@ export function App() {
                                 className="btn ghost btn-block booking-item__expand"
                                 onClick={() => setExpandedEquipmentRequestId(expanded ? '' : req.id)}
                               >
-                                {expanded ? 'Recolher ▲' : 'Expandir ▼'}
+                                {expanded ? <>Recolher <ChevronUp size={16} aria-hidden="true" /></> : <>Expandir <ChevronDown size={16} aria-hidden="true" /></>}
                               </button>
 
                               {expanded && (
@@ -2152,7 +2152,7 @@ export function App() {
             <div className="modal-content" onClick={(event) => event.stopPropagation()}>
               <div className="modal-head">
                 <h3>Pegar equipamento</h3>
-                <button className="modal-close" type="button" onClick={closeTakeModal} aria-label="Fechar">✕</button>
+                <button className="modal-close" type="button" onClick={closeTakeModal} aria-label="Fechar"><X size={20} aria-hidden="true" /></button>
               </div>
 
               <div className="take-modal">
@@ -2183,7 +2183,7 @@ export function App() {
 
                 <div className={`term-step ${equipmentTermAccepted ? 'done' : ''}`}>
                   <button type="button" className="btn btn-outline" onClick={() => setShowEquipmentTermPopup(true)}>
-                    {equipmentTermAccepted ? '✓ Termo de uso aceito' : 'Ler termo de uso'}
+                    {equipmentTermAccepted ? 'Termo de uso aceito' : 'Ler termo de uso'}
                   </button>
                 </div>
 
@@ -2239,7 +2239,7 @@ export function App() {
           <div className="modal-content modal-content--small" onClick={(event) => event.stopPropagation()}>
             <div className="modal-head">
               <h3>Acesso restrito</h3>
-              <button className="modal-close" type="button" onClick={() => setShowEquipmentAccessGate(false)} aria-label="Fechar">✕</button>
+              <button className="modal-close" type="button" onClick={() => setShowEquipmentAccessGate(false)} aria-label="Fechar"><X size={20} aria-hidden="true" /></button>
             </div>
             <p>Retirar equipamento do estúdio é uma ação restrita a admins.</p>
             <p>Você pode pedir liberação para este uso específico explicando o motivo; os admins avaliam e o Lucas aprova ou rejeita.</p>
@@ -2262,7 +2262,7 @@ export function App() {
           <div className="modal-content modal-content--small" onClick={(event) => event.stopPropagation()}>
             <div className="modal-head">
               <h3>Pedir equipamento</h3>
-              <button className="modal-close" type="button" onClick={() => setShowEquipmentRequestForm(false)} aria-label="Fechar">✕</button>
+              <button className="modal-close" type="button" onClick={() => setShowEquipmentRequestForm(false)} aria-label="Fechar"><X size={20} aria-hidden="true" /></button>
             </div>
             <form onSubmit={submitEquipmentRequest}>
               <label>
@@ -2282,7 +2282,7 @@ export function App() {
 
               <div className={`term-step ${equipmentTermAccepted ? 'done' : ''}`}>
                 <button type="button" className="btn btn-outline" onClick={() => setShowEquipmentTermPopup(true)}>
-                  {equipmentTermAccepted ? '✓ Termo de uso aceito' : 'Ler termo de uso'}
+                  {equipmentTermAccepted ? 'Termo de uso aceito' : 'Ler termo de uso'}
                 </button>
               </div>
               <label>
@@ -2513,7 +2513,7 @@ export function App() {
           <div className="availability-card" onClick={(event) => event.stopPropagation()}>
             <div className="availability-head">
               <h3>Escolher data e horário</h3>
-              <button type="button" className="modal-close" onClick={() => setShowAvailability(false)} aria-label="Fechar">✕</button>
+              <button type="button" className="modal-close" onClick={() => setShowAvailability(false)} aria-label="Fechar"><X size={20} aria-hidden="true" /></button>
             </div>
 
             {availabilityLoading && <p className="availability-status">Carregando agenda do estúdio...</p>}

@@ -5,6 +5,7 @@
 // termo da Agenda (reserva do estúdio) quanto para o termo de equipamentos.
 
 import { useEffect, useRef, useState } from 'react';
+import { X } from 'lucide-react';
 import type { TermDocument } from './termsContent';
 
 type TermsScrollPopupProps = {
@@ -42,7 +43,9 @@ export function TermsScrollPopup({ document: doc, onAccept, onClose }: TermsScro
             <h3>{doc.title}</h3>
             <span className="terms-popup__subtitle">{doc.subtitle}</span>
           </div>
-          <button type="button" className="modal-close" aria-label="Fechar" onClick={onClose}>✕</button>
+          <button type="button" className="modal-close" aria-label="Fechar" onClick={onClose}>
+            <X size={20} aria-hidden="true" />
+          </button>
         </div>
 
         <div className="terms-popup__body" ref={bodyRef} onScroll={checkScrollable}>
