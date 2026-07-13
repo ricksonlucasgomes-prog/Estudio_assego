@@ -101,7 +101,7 @@ const EMAIL_RECIPIENTS = ['ricksonlucasgomes@gmail.com', 'comunicacaoassego@gmai
 // quarto usuário). Lucas Rickson é 'developer' (acesso total), não admin,
 // mas continua sendo o aprovador único — ver isLeadApprover.
 const BOOKING_APPROVERS = ['Lucas Rickson', 'Badu', 'Sergio Vinicius', 'Sgt. Tiago Raiz'];
-const PODCAST_NOTICE = 'Última atualização: 13/07/2026 — Notificações no app e por email; horários de início e término; mini-calendário; envio seguro de materiais; formulário sem RG; melhorias de segurança e adaptação para iPhone';
+const PODCAST_NOTICE = 'Última atualização: 13/07/2026 — Notificações no app e por e-mail; horários de início e término; mini-calendário; envio seguro de materiais; formulário sem RG; melhorias de segurança e adaptação para iPhone';
 const UPLOAD_ENDPOINT = import.meta.env.VITE_UPLOAD_ENDPOINT as string | undefined;
 const ACCESS_REQUEST_ENDPOINT = import.meta.env.VITE_ACCESS_REQUEST_ENDPOINT as string | undefined;
 const BOOKING_MATERIALS_BUCKET = 'booking-materials';
@@ -301,13 +301,13 @@ function borrowDueText(checkout: Checkout) {
 
 function friendlyAuthError(message: string) {
   const msg = message.toLowerCase();
-  if (msg.includes('invalid login')) return 'Email ou senha incorretos.';
-  if (msg.includes('already registered') || msg.includes('already been registered')) return 'Esse email já tem cadastro. Faça login.';
+  if (msg.includes('invalid login')) return 'E-mail ou senha incorretos.';
+  if (msg.includes('already registered') || msg.includes('already been registered')) return 'Esse e-mail já tem cadastro. Faça login.';
   if (msg.includes('password should be at least')) return 'A senha precisa de pelo menos 6 caracteres.';
-  if (msg.includes('unable to validate email') || msg.includes('invalid email')) return 'Email inválido.';
-  if (msg.includes('email not confirmed')) return 'Confirme seu email pelo link que enviamos antes de entrar.';
-  if (msg.includes('email address not authorized')) return 'O envio de confirmação ainda não está liberado para este email. Avise o administrador.';
-  if (msg.includes('rate limit') || msg.includes('email rate limit')) return 'Limite de emails atingido. Aguarde alguns minutos e tente novamente.';
+  if (msg.includes('unable to validate email') || msg.includes('invalid email')) return 'E-mail inválido.';
+  if (msg.includes('email not confirmed')) return 'Confirme seu e-mail pelo link que enviamos antes de entrar.';
+  if (msg.includes('email address not authorized')) return 'O envio de confirmação ainda não está liberado para este e-mail. Avise o administrador.';
+  if (msg.includes('rate limit') || msg.includes('email rate limit')) return 'Limite de e-mails atingido. Aguarde alguns minutos e tente novamente.';
   return message;
 }
 
@@ -384,7 +384,7 @@ export function App() {
   const [accessRequestInfo, setAccessRequestInfo] = useState('');
   // Papel que o próprio usuário está pedindo em "Pedir liberação". Quem
   // decide se libera é sempre um admin/developer manualmente no SQL Editor
-  // — isto só define o texto do pedido enviado por email.
+  // — isto só define o texto do pedido enviado por e-mail.
   const [requestedRoleChoice, setRequestedRoleChoice] = useState<'borrower' | 'admin'>('borrower');
 
   // A Agenda é a entrada principal do painel.
@@ -613,7 +613,7 @@ export function App() {
       setProfile(data as Profile);
       return;
     }
-    setProfile({ id, full_name: metaName || (email ? email.split('@')[0] : 'Usuario'), role: 'viewer' });
+    setProfile({ id, full_name: metaName || (email ? email.split('@')[0] : 'Usuário'), role: 'viewer' });
   }
 
   // Botao de instalar (PWA)
@@ -684,7 +684,7 @@ export function App() {
     const email = formEmail.trim().toLowerCase();
     const password = formPass;
     if (!email || !password) {
-      setAuthError('Preencha email e senha.');
+      setAuthError('Preencha e-mail e senha.');
       return;
     }
 
@@ -707,7 +707,7 @@ export function App() {
         }
         if (!data.session) {
           setConfirmationEmail(email);
-          setAuthInfo('Confira a caixa de entrada e o spam. Se o cadastro foi criado, você receberá um link para confirmar o email.');
+          setAuthInfo('Confira a caixa de entrada e o spam. Se o cadastro foi criado, você receberá um link para confirmar o e-mail.');
           setAuthMode('login');
           setFormPass('');
         }
@@ -794,10 +794,10 @@ export function App() {
         throw new Error(payload.error || 'Falha ao enviar pedido.');
       }
 
-      setAccessRequestInfo('Pedido enviado aos admins por email.');
+      setAccessRequestInfo('Pedido enviado aos administradores por e-mail.');
     } catch (error) {
       console.warn('Falha ao pedir liberacao.', error);
-      setAccessRequestInfo('Não foi possível enviar o email. Verifique deploy/secrets da função.');
+      setAccessRequestInfo('Não foi possível enviar o e-mail. Verifique o deploy e os secrets da função.');
     } finally {
       setAccessRequestBusy(false);
     }
@@ -1089,7 +1089,7 @@ export function App() {
       persist(() => addMedia(record, userId));
 
       setMediaTitle('');
-      flash(syncStatus === 'sent' ? 'Foto enviada ao Drive e email' : 'Foto salva (envio ao Drive/email pendente de backend)');
+      flash(syncStatus === 'sent' ? 'Foto enviada ao Drive e por e-mail' : 'Foto salva (envio ao Drive/e-mail pendente de backend)');
     } catch {
       flash('Não foi possível processar a foto');
     } finally {
@@ -1417,9 +1417,9 @@ export function App() {
       }
 
       if (result.notification_status === 'pending_retry') {
-        alert('Solicitação registrada e assinada. O aviso por email ficou pendente para uma nova tentativa de envio.');
+        alert('Solicitação registrada e assinada. O aviso por e-mail ficou pendente para uma nova tentativa de envio.');
       } else if (result.notification_status === 'sent') {
-        alert('Sucesso! Sua solicitação assinada foi enviada e o aviso por email foi processado.');
+        alert('Sucesso! Sua solicitação assinada foi enviada e o aviso por e-mail foi processado.');
       } else {
         alert('Sucesso! Sua solicitação assinada foi enviada e está sob análise da diretoria.');
       }
@@ -1531,9 +1531,9 @@ export function App() {
     try {
       const result = await updateBookingStatus(id, status);
       if (result.notificationStatus === 'pending_retry') {
-        flash('Decisão salva e aviso no app criado; email aguardando nova tentativa');
+        flash('Decisão salva e aviso no app criado; e-mail aguardando nova tentativa');
       } else if (result.notificationStatus === 'processing') {
-        flash('Decisão salva; envio do email já está em processamento');
+        flash('Decisão salva; envio do e-mail já está em processamento');
       } else {
         flash(status === 'approved'
           ? 'Solicitação aprovada; solicitante avisado'
@@ -1607,7 +1607,7 @@ export function App() {
   }, [isAdmin, supabaseConfigured]);
 
   // Usuário sem admin/borrower pedindo equipamento mesmo assim, com
-  // justificativa. Dispara email aos 3 admins via edge function.
+  // justificativa. Dispara e-mail aos 3 admins via Edge Function.
   function openEquipmentRequestForm(equipmentId: string) {
     equipmentRequestIdempotencyKey.current = crypto.randomUUID();
     setEquipmentRequestTarget(equipmentId);
@@ -1656,7 +1656,7 @@ export function App() {
         throw new Error(result.error || 'Erro no servidor. Tente novamente mais tarde.');
       }
 
-      setEquipmentRequestInfo('Pedido enviado! Os admins foram avisados por email.');
+      setEquipmentRequestInfo('Pedido enviado. Os administradores foram avisados por e-mail.');
       window.setTimeout(() => {
         setShowEquipmentRequestForm(false);
         setEquipmentRequestTarget('');
@@ -1731,7 +1731,7 @@ export function App() {
             </>
           )}
 
-          <label htmlFor="formEmail">Email</label>
+          <label htmlFor="formEmail">E-mail</label>
           <input id="formEmail" type="email" value={formEmail} onChange={(event) => setFormEmail(event.target.value)} autoComplete="email" disabled={!supabaseConfigured} />
 
           <label htmlFor="formPass">Senha</label>
@@ -1747,7 +1747,7 @@ export function App() {
               onClick={resendConfirmation}
               disabled={resendBusy || !supabaseConfigured}
             >
-              {resendBusy ? 'Reenviando...' : 'Reenviar email de confirmação'}
+              {resendBusy ? 'Reenviando...' : 'Reenviar e-mail de confirmação'}
             </button>
           )}
 
@@ -1920,7 +1920,7 @@ export function App() {
                                     <div className="booking-field-grid">
                                       <span><b>Nome</b>{req.requester_name || '-'}</span>
                                       <span><b>WhatsApp</b>{req.requester_whatsapp || '-'}</span>
-                                      <span><b>Email</b>{req.requester_email || '-'}</span>
+                                      <span><b>E-mail</b>{req.requester_email || '-'}</span>
                                       <span><b>CPF</b>{req.requester_cpf || '-'}</span>
                                       <span><b>Rede social</b>{req.requester_social || '-'}</span>
                                       <span><b>Tipo de horário</b>{req.requested_time && req.requested_time > '17:00' ? 'Excepcional — após as 17h' : 'Horário regular'}</span>
@@ -1937,7 +1937,7 @@ export function App() {
                                             <strong>{p.full_name}</strong>
                                             <div className="booking-field-grid">
                                               <span><b>WhatsApp</b>{p.whatsapp || '-'}</span>
-                                              <span><b>Email</b>{p.email || '-'}</span>
+                                              <span><b>E-mail</b>{p.email || '-'}</span>
                                               <span><b>CPF</b>{p.cpf || '-'}</span>
                                               <span><b>Rede social</b>{p.social || '-'}</span>
                                             </div>
@@ -2028,7 +2028,7 @@ export function App() {
                                           <button className="btn btn-outline" type="button" disabled={equipmentActionId === req.id} onClick={() => decideEquipmentRequest(req.id, 'rejected')}>Rejeitar</button>
                                         </>
                                       ) : (
-                                        <span className="approver-note">Decisao final registrada.</span>
+                                        <span className="approver-note">Decisão final registrada.</span>
                                       )
                                     ) : (
                                       <span className="approver-note">Somente Lucas Rickson pode aprovar ou rejeitar.</span>
@@ -2131,7 +2131,7 @@ export function App() {
       {role === 'viewer' && (
         <div className="viewer-banner">
           <span>
-            Seu acesso está como visualização. Um admin precisa liberar seu perfil para retirar equipamentos e salvar conferências.
+            Seu acesso está como visualização. Um administrador precisa liberar seu perfil para retirar equipamentos e salvar conferências.
           </span>
           <label className="viewer-banner__role-choice">
             Pedir acesso de
@@ -2161,7 +2161,7 @@ export function App() {
             <article className="dashboard-hero">
               <div className="dashboard-hero__copy">
                 <p className="eyebrow">Painel operacional</p>
-                <h2>O Estúdio da ASSEGO em um única visão</h2>
+                <h2>O Estúdio da ASSEGO em uma única visão</h2>
                 <p>Organize reservas, gravações, conferências e equipamentos com segurança.</p>
               </div>
               <div className="dashboard-hero__actions">
@@ -2268,7 +2268,7 @@ export function App() {
           <div className="card-head">
             <h2>Conferência de equipamentos</h2>
             <div className="head-actions">
-              <button className="btn ghost" type="button" onClick={resetChecklist} disabled={!canManage}>Zerar</button>
+              <button className="btn ghost" type="button" onClick={resetChecklist} disabled={!canManage}>Limpar</button>
               <button className="btn" type="button" onClick={saveConference} disabled={!canSaveConference}>Salvar conferência</button>
             </div>
           </div>
@@ -2382,7 +2382,7 @@ export function App() {
           <div className="drive-panel">
             <div className="drive-fixed">
               <span>Destino das fotos</span>
-              <strong>Google Drive do Lucas + aviso por email</strong>
+              <strong>Google Drive do Lucas + aviso por e-mail</strong>
             </div>
             <label>
               Equipamento
@@ -2417,8 +2417,8 @@ export function App() {
                 ) : null}
                 <div className="media-meta">
                   <span>{item.addedBy} - {formatDateTime(item.ts)}</span>
-                  {item.syncStatus === 'sent' && <span className="sync ok">Enviado ao Drive/email</span>}
-                  {item.syncStatus === 'error' && <span className="sync err">Falha no envio ao Drive/email</span>}
+                  {item.syncStatus === 'sent' && <span className="sync ok">Enviado ao Drive/e-mail</span>}
+                  {item.syncStatus === 'error' && <span className="sync err">Falha no envio ao Drive/e-mail</span>}
                   {(!item.syncStatus || item.syncStatus === 'local') && <span className="sync pending">Aguardando backend</span>}
                 </div>
                 <div className="media-actions">
@@ -2442,8 +2442,8 @@ export function App() {
 
         {!isAdmin ? (
           <div className="equipment-locked">
-            <p><strong>Acesso aos equipamentos é apenas para admins.</strong></p>
-            <p>Se você realmente precisa de um equipamento, explique o motivo e os admins vão avaliar.</p>
+            <p><strong>O acesso aos equipamentos é restrito aos administradores.</strong></p>
+            <p>Se você realmente precisa de um equipamento, explique o motivo para avaliação dos administradores.</p>
             <button className="btn btn-yellow" type="button" onClick={() => setShowEquipmentAccessGate(true)}>
               Solicitar mesmo assim
             </button>
@@ -2622,8 +2622,8 @@ export function App() {
               <h3>Acesso restrito</h3>
               <button className="modal-close" type="button" onClick={() => setShowEquipmentAccessGate(false)} aria-label="Fechar"><X size={20} aria-hidden="true" /></button>
             </div>
-            <p>Retirar equipamento do estúdio é uma ação restrita a admins.</p>
-            <p>Você pode pedir liberação para este uso específico explicando o motivo; os admins avaliam e o Lucas aprova ou rejeita.</p>
+            <p>Retirar equipamento do estúdio é uma ação restrita aos administradores.</p>
+            <p>Você pode pedir liberação para este uso específico explicando o motivo; os administradores avaliam e o Lucas aprova ou rejeita.</p>
             <div className="modal-actions">
               <button className="btn ghost" type="button" onClick={() => setShowEquipmentAccessGate(false)}>Fechar</button>
               <button
@@ -2757,15 +2757,15 @@ export function App() {
             </div>
 
             <form onSubmit={handleBookingSubmit}>
-              <p className="modal-section-title">1. Dados do Solicitante</p>
+                <p className="modal-section-title">1. Dados do solicitante</p>
               <div className="form-grid">
                 <div className="form-group full">
-                  <label htmlFor="req-name">Nome Completo</label>
+                  <label htmlFor="req-name">Nome completo</label>
                   <input id="req-name" required type="text" placeholder="Seu nome completo" value={requesterData.name} onChange={(e) => setRequesterData({ ...requesterData, name: e.target.value })} />
                 </div>
                 <div className="form-group">
                   <label htmlFor="req-email">E-mail</label>
-                  <input id="req-email" required readOnly type="email" placeholder="voce@email.com" value={userEmail} />
+                  <input id="req-email" required readOnly type="email" placeholder="nome@email.com" value={userEmail} />
                 </div>
                 <div className="form-group">
                   <label htmlFor="req-whats">WhatsApp</label>
@@ -2776,7 +2776,7 @@ export function App() {
                   <input id="req-cpf" required type="text" placeholder="000.000.000-00" value={requesterData.cpf} onChange={(e) => setRequesterData({ ...requesterData, cpf: e.target.value })} />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="req-social">Redes Sociais (@)</label>
+                  <label htmlFor="req-social">Redes sociais (@)</label>
                   <input id="req-social" required type="text" placeholder="@seu_perfil" value={requesterData.social} onChange={(e) => setRequesterData({ ...requesterData, social: e.target.value })} />
                 </div>
                 <div className="form-group full">
@@ -2995,13 +2995,13 @@ export function App() {
                       />
                     </div>
                     <p className="booking-materials__privacy">
-                      Os arquivos enviados pelo botão ficam em armazenamento privado. O email de solicitação recebe links temporários para acesso.
+                      Os arquivos enviados pelo botão ficam em armazenamento privado. O e-mail de solicitação recebe links temporários para acesso.
                     </p>
                   </section>
                 </div>
               </div>
 
-              <p className="modal-section-title">2. Convidados (Participantes)</p>
+              <p className="modal-section-title">2. Convidados (participantes)</p>
               {guestsData.length === 0 && (
                 <p className="guest-empty">Nenhum convidado adicionado. Se a gravação terá participantes, cadastre cada um abaixo.</p>
               )}
@@ -3013,7 +3013,7 @@ export function App() {
                   </div>
                   <div className="form-grid">
                     <div className="form-group full">
-                      <label>Nome Completo</label>
+                      <label>Nome completo</label>
                       <input required type="text" placeholder="Nome do convidado" value={guest.name} onChange={(e) => updateGuest(index, 'name', e.target.value)} />
                     </div>
                     <div className="form-group">
@@ -3029,7 +3029,7 @@ export function App() {
                       <input required type="email" placeholder="convidado@email.com" value={guest.email} onChange={(e) => updateGuest(index, 'email', e.target.value)} />
                     </div>
                     <div className="form-group">
-                      <label>Redes Sociais (@)</label>
+                      <label>Redes sociais (@)</label>
                       <input required type="text" placeholder="@perfil" value={guest.social} onChange={(e) => updateGuest(index, 'social', e.target.value)} />
                     </div>
                   </div>
@@ -3037,7 +3037,7 @@ export function App() {
               ))}
 
               <button type="button" className="btn btn-outline btn-block" onClick={addGuest}>
-                + Adicionar Convidado
+                + Adicionar convidado
               </button>
 
               {/* ============================================================
@@ -3047,12 +3047,12 @@ export function App() {
                   (Edge Function) carimba IP (x-forwarded-for), timestamp e
                   hash SHA-256 na tabela legal_signatures para não-repúdio.
                   ============================================================ */}
-              <p className="modal-section-title">3. Termo de Uso e Assinatura Digital</p>
+              <p className="modal-section-title">3. Termo de uso e assinatura digital</p>
               <div className="signature-gate">
                 <div className={`signature-step ${termAccepted ? 'done' : ''}`}>
                   <span className="signature-step__label">
                     <span className="signature-step__num">1</span>
-                    Leia o Termo de Uso até o final e clique em Concordo
+                    Leia o Termo de Uso até o final e clique em “Concordo”
                   </span>
                   <button type="button" className="term-download" onClick={() => setShowTermPopup(true)}>
                     {termAccepted ? 'Termo de Uso aceito — ler novamente' : 'Ler Termo de Uso'}

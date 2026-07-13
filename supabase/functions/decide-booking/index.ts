@@ -45,7 +45,7 @@ async function sendDecisionEmail(payload: JsonRecord): Promise<void> {
   if (!recipient) throw new Error('REQUESTER_EMAIL_MISSING')
 
   const approved = payload.status === 'approved'
-  const statusLabel = approved ? 'aprovada' : 'nao aprovada'
+  const statusLabel = approved ? 'aprovada' : 'não aprovada'
   const client = new SMTPClient({
     connection: {
       hostname: 'smtp.gmail.com',
@@ -60,15 +60,15 @@ async function sendDecisionEmail(payload: JsonRecord): Promise<void> {
       from: gmailUser,
       to: recipient,
       subject: safeHeader(approved
-        ? 'Sua gravacao no Assego Studio foi aprovada'
-        : 'Atualizacao da sua solicitacao no Assego Studio'),
+        ? 'Sua gravação no Assego Studio foi aprovada'
+        : 'Atualização da sua solicitação no Assego Studio'),
       content:
-        `Ola, ${text(payload.requester_name, 160) || 'solicitante'}.\n\n` +
-        `Sua solicitacao de gravacao para ${text(payload.requested_date, 10)}, das ${text(payload.requested_time, 5)} as ${text(payload.requested_end_time, 5)}, foi ${statusLabel}.\n\n` +
+        `Olá, ${text(payload.requester_name, 160) || 'solicitante'}.\n\n` +
+        `Sua solicitação de gravação para ${text(payload.requested_date, 10)}, das ${text(payload.requested_time, 5)} às ${text(payload.requested_end_time, 5)}, foi ${statusLabel}.\n\n` +
         (approved
-          ? 'A reserva foi aprovada. A equipe da ASSEGO podera entrar em contato caso seja necessario alinhar detalhes da producao.\n\n'
-          : 'Acesse o aplicativo ou entre em contato com a equipe da ASSEGO caso precise de mais informacoes.\n\n') +
-        'Voce tambem recebeu este aviso no sininho de Notificacoes do aplicativo.\n' +
+          ? 'A reserva foi aprovada. A equipe da ASSEGO poderá entrar em contato caso seja necessário alinhar detalhes da produção.\n\n'
+          : 'Acesse o aplicativo ou entre em contato com a equipe da ASSEGO caso precise de mais informações.\n\n') +
+        'Você também recebeu este aviso no sininho de Notificações do aplicativo.\n' +
         'Acesse: https://assegostudio.vercel.app',
     })
   } finally {
@@ -79,19 +79,19 @@ async function sendDecisionEmail(payload: JsonRecord): Promise<void> {
 serve(async (req) => {
   const origin = req.headers.get('origin') ?? ''
   if (origin && !ALLOWED_ORIGINS.has(origin)) {
-    return jsonResponse(req, { error: 'Origem nao autorizada.' }, 403)
+    return jsonResponse(req, { error: 'Origem não autorizada.' }, 403)
   }
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
-  if (req.method !== 'POST') return jsonResponse(req, { error: 'Metodo nao permitido.' }, 405)
+  if (req.method !== 'POST') return jsonResponse(req, { error: 'Método não permitido.' }, 405)
 
   const requestId = crypto.randomUUID()
   try {
     const authHeader = req.headers.get('Authorization') ?? ''
-    if (!authHeader.startsWith('Bearer ')) return jsonResponse(req, { error: 'Nao autenticado.' }, 401)
+    if (!authHeader.startsWith('Bearer ')) return jsonResponse(req, { error: 'Não autenticado.' }, 401)
 
     const rawBody = await req.text()
     if (new TextEncoder().encode(rawBody).length > 4096) {
-      return jsonResponse(req, { error: 'Solicitacao muito grande.' }, 413)
+      return jsonResponse(req, { error: 'Solicitação muito grande.' }, 413)
     }
     let body: JsonRecord
     try {
@@ -99,13 +99,13 @@ serve(async (req) => {
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('INVALID_JSON')
       body = parsed as JsonRecord
     } catch {
-      return jsonResponse(req, { error: 'JSON invalido.' }, 400)
+      return jsonResponse(req, { error: 'JSON inválido.' }, 400)
     }
 
     const bookingId = text(body.bookingId, 64)
     const status = text(body.status, 16)
     if (!/^[0-9a-f-]{36}$/i.test(bookingId) || !['approved', 'rejected'].includes(status)) {
-      return jsonResponse(req, { error: 'Decisao invalida.' }, 400)
+      return jsonResponse(req, { error: 'Decisão inválida.' }, 400)
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
@@ -118,7 +118,7 @@ serve(async (req) => {
       auth: { persistSession: false },
     })
     const { data: { user }, error: userError } = await authClient.auth.getUser()
-    if (userError || !user) return jsonResponse(req, { error: 'Nao autenticado.' }, 401)
+    if (userError || !user) return jsonResponse(req, { error: 'Não autenticado.' }, 401)
 
     const { data: decision, error: decisionError } = await authClient.rpc('set_booking_status_v1', {
       p_id: bookingId,
@@ -126,9 +126,9 @@ serve(async (req) => {
     })
     if (decisionError) {
       if (/Apenas o aprovador principal/i.test(decisionError.message)) {
-        return jsonResponse(req, { error: 'Sem permissao para decidir esta solicitacao.' }, 403)
+        return jsonResponse(req, { error: 'Sem permissão para decidir esta solicitação.' }, 403)
       }
-      if (/inexistente|finalizada|Status invalido/i.test(decisionError.message)) {
+      if (/inexistente|finalizada|Status inv[aá]lido/i.test(decisionError.message)) {
         return jsonResponse(req, { error: decisionError.message }, 409)
       }
       throw decisionError
@@ -199,17 +199,17 @@ serve(async (req) => {
         })
         .eq('id', outboxId)
 
-      console.error(`[${requestId}] Falha no email de decisao`, message)
+      console.error(`[${requestId}] Falha no e-mail de decisão`, message)
       return jsonResponse(req, {
         success: true,
         booking_id: bookingId,
         status,
         notification_status: 'pending_retry',
-        warning: 'Decisao registrada e aviso no app criado. O email aguarda nova tentativa.',
+        warning: 'Decisão registrada e aviso no app criado. O e-mail aguarda nova tentativa.',
       }, 202)
     }
   } catch (error) {
     console.error(`[${requestId}] Falha no decide-booking`, error)
-    return jsonResponse(req, { error: 'Nao foi possivel concluir a decisao.', request_id: requestId }, 500)
+    return jsonResponse(req, { error: 'Não foi possível concluir a decisão.', request_id: requestId }, 500)
   }
 })

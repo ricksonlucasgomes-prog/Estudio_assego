@@ -1,11 +1,11 @@
 // Supabase Edge Function: check-overdue-equipment
 // Roda 1x por dia (via pg_cron, ver supabase/cron_overdue_equipment.sql) e
-// avisa por email o Lucas + quem retirou o equipamento quando o prazo de
+// avisa por e-mail o Lucas + quem retirou o equipamento quando o prazo de
 // devolução (7 dias corridos a partir de studio_checkouts.taken_at) vence.
 //
-// Secrets necessarios (ja configurados para submit-booking):
+// Secrets necessários (já configurados para submit-booking):
 //   supabase secrets set GMAIL_USER=... GMAIL_APP_PASSWORD=...
-// SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY sao injetados automaticamente
+// SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY são injetados automaticamente
 // pelo Supabase em toda Edge Function.
 //
 // Deploy:
@@ -27,7 +27,7 @@ async function sendOverdueEmail(to: string[], subject: string, content: string) 
   const gmailUser = Deno.env.get('GMAIL_USER')
   const gmailPass = Deno.env.get('GMAIL_APP_PASSWORD')
   if (!gmailUser || !gmailPass) {
-    console.warn('GMAIL_USER/GMAIL_APP_PASSWORD nao configurados; pulando envio de email.')
+    console.warn('GMAIL_USER/GMAIL_APP_PASSWORD não configurados; pulando envio de e-mail.')
     return
   }
   const client = new SMTPClient({
@@ -83,8 +83,8 @@ serve(async (req) => {
         `O equipamento "${item.item_id}" (${item.qty} unidade(s)) retirado por ${item.user_name} ` +
         `venceu o prazo de devolução de 7 dias corridos (retirado em ${takenAt.toLocaleDateString('pt-BR')}, ` +
         `${daysLate} dia(s) de atraso).\n\n` +
-        `Por favor, devolva o quanto antes. Caso a devolução nao seja feita, o caso podera ser escalado a ` +
-        `presidencia da ASSEGO.\n\n` +
+        `Por favor, devolva o quanto antes. Caso a devolução não seja feita, o caso poderá ser escalado à ` +
+        `Presidência da ASSEGO.\n\n` +
         `Acesse o app: https://assegostudio.vercel.app`
 
       await sendOverdueEmail(recipients, `Equipamento atrasado: ${item.item_id}`, content)

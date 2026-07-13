@@ -93,23 +93,23 @@ async function retryBookingCreated(admin: SupabaseClient, payload: JsonRecord): 
   const guestLines = guests.length
     ? guests.map((guest, index) =>
         `${index + 1}. ${text(guest.name, 160)} | CPF: ${text(guest.cpf, 20)} | ` +
-        `Email: ${text(guest.email, 254)} | WhatsApp: ${text(guest.whatsapp, 30)} | ` +
+        `E-mail: ${text(guest.email, 254)} | WhatsApp: ${text(guest.whatsapp, 30)} | ` +
         `Rede social: ${text(guest.social, 120)}`
       ).join('\n')
     : 'Nenhum convidado adicional.'
   const recipients = await resolveAdminRecipients(admin)
   await sendMail(
     recipients,
-    `Nova solicitacao de agendamento - ${text(requester.name, 160)}`,
-    `Nova solicitacao de agendamento no Assego Studio.\n\n` +
+    `Nova solicitação de agendamento - ${text(requester.name, 160)}`,
+    `Nova solicitação de agendamento no Assego Studio.\n\n` +
       `Nome: ${text(requester.name, 160)}\nCPF: ${text(requester.cpf, 20)}\n` +
-      `Email: ${text(requester.email, 254)}\nWhatsApp: ${text(requester.whatsapp, 30)}\n` +
+      `E-mail: ${text(requester.email, 254)}\nWhatsApp: ${text(requester.whatsapp, 30)}\n` +
       `Rede social: ${text(requester.social, 120)}\n\n` +
-      `Data: ${text(booking.date, 10)}\nInicio: ${text(booking.time, 5)}\n` +
-      `Termino: ${text(booking.endTime, 5)}\n\nPrograma: ${text(program.name, 160)}\n` +
+      `Data: ${text(booking.date, 10)}\nInício: ${text(booking.time, 5)}\n` +
+      `Término: ${text(booking.endTime, 5)}\n\nPrograma: ${text(program.name, 160)}\n` +
       `Formato: ${program.format === 'live' ? 'Ao vivo' : 'Gravado'}\n` +
-      `Orientacoes: ${text(program.productionNotes, 2000) || 'Nenhuma.'}\n` +
-      `Canal do YouTube: ${text(program.youtubeChannelUrl, 500) || 'Nao se aplica'}\n\n` +
+      `Orientações: ${text(program.productionNotes, 2000) || 'Nenhuma.'}\n` +
+      `Canal do YouTube: ${text(program.youtubeChannelUrl, 500) || 'Não se aplica'}\n\n` +
       `Arquivos privados:\n${materialLines.join('\n') || 'Nenhum arquivo.'}\n\n` +
       `Links externos:\n${externalLinks.join('\n') || 'Nenhum link.'}\n\n` +
       `Convidados:\n${guestLines}\n\nAcesse: https://assegostudio.vercel.app`,
@@ -122,11 +122,11 @@ async function retryBookingStatus(payload: JsonRecord): Promise<void> {
   const approved = payload.status === 'approved'
   await sendMail(
     recipient,
-    approved ? 'Sua gravacao no Assego Studio foi aprovada' : 'Atualizacao da sua solicitacao no Assego Studio',
-    `Ola, ${text(payload.requester_name, 160) || 'solicitante'}.\n\n` +
-      `Sua solicitacao para ${text(payload.requested_date, 10)}, das ${text(payload.requested_time, 5)} ` +
-      `as ${text(payload.requested_end_time, 5)}, foi ${approved ? 'aprovada' : 'nao aprovada'}.\n\n` +
-      'Consulte tambem o sininho de Notificacoes: https://assegostudio.vercel.app',
+    approved ? 'Sua gravação no Assego Studio foi aprovada' : 'Atualização da sua solicitação no Assego Studio',
+    `Olá, ${text(payload.requester_name, 160) || 'solicitante'}.\n\n` +
+      `Sua solicitação para ${text(payload.requested_date, 10)}, das ${text(payload.requested_time, 5)} ` +
+      `às ${text(payload.requested_end_time, 5)}, foi ${approved ? 'aprovada' : 'não aprovada'}.\n\n` +
+      'Consulte também o sininho de Notificações: https://assegostudio.vercel.app',
   )
 }
 
@@ -150,14 +150,14 @@ async function deliver(admin: SupabaseClient, row: OutboxRow): Promise<void> {
 }
 
 serve(async (req) => {
-  if (req.method !== 'POST') return response({ error: 'Metodo nao permitido.' }, 405)
+  if (req.method !== 'POST') return response({ error: 'Método não permitido.' }, 405)
   const expectedSecret = Deno.env.get('NOTIFICATION_WORKER_SECRET') ?? ''
   const providedSecret = req.headers.get('x-cron-secret') ?? ''
-  if (!expectedSecret || providedSecret !== expectedSecret) return response({ error: 'Nao autorizado.' }, 401)
+  if (!expectedSecret || providedSecret !== expectedSecret) return response({ error: 'Não autorizado.' }, 401)
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  if (!supabaseUrl || !serviceKey) return response({ error: 'Backend nao configurado.' }, 500)
+  if (!supabaseUrl || !serviceKey) return response({ error: 'Backend não configurado.' }, 500)
   const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } })
 
   let batchSize = 10
@@ -165,7 +165,7 @@ serve(async (req) => {
     const body = await req.json()
     batchSize = Math.max(1, Math.min(25, Number(body?.batchSize ?? 10)))
   } catch {
-    // Corpo vazio usa o lote padrao.
+    // Corpo vazio usa o lote padrão.
   }
 
   const now = new Date()

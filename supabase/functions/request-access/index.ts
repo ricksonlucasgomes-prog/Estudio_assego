@@ -1,7 +1,7 @@
 // Supabase Edge Function: request-access
-// Envia email aos admins pedindo liberacao de acesso para um usuario logado.
+// Envia e-mail aos administradores pedindo liberação de acesso para um usuário logado.
 //
-// Secrets necessarios:
+// Secrets necessários:
 //   supabase secrets set GMAIL_USER=... GMAIL_APP_PASSWORD=...
 // Deploy:
 //   supabase functions deploy request-access
@@ -29,7 +29,7 @@ async function sendEmail(subject: string, content: string) {
   const gmailUser = Deno.env.get('GMAIL_USER');
   const gmailPass = Deno.env.get('GMAIL_APP_PASSWORD');
   if (!gmailUser || !gmailPass) {
-    console.warn('GMAIL_USER/GMAIL_APP_PASSWORD nao configurados; pulando envio de email.');
+    console.warn('GMAIL_USER/GMAIL_APP_PASSWORD não configurados; pulando envio de e-mail.');
     return;
   }
   const client = new SMTPClient({
@@ -54,7 +54,7 @@ async function sendEmail(subject: string, content: string) {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
-  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: cors });
+  if (req.method !== 'POST') return new Response('Método não permitido', { status: 405, headers: cors });
 
   try {
     const authHeader = req.headers.get('Authorization') ?? '';
@@ -64,19 +64,19 @@ Deno.serve(async (req) => {
 
     const { data: userData } = await sb.auth.getUser();
     const user = userData?.user;
-    if (!user) return new Response(JSON.stringify({ error: 'nao autenticado' }), { status: 401, headers: cors });
+    if (!user) return new Response(JSON.stringify({ error: 'não autenticado' }), { status: 401, headers: cors });
 
     const body = await req.json().catch(() => ({}));
-    const name = String(body.name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario');
+    const name = String(body.name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário');
     const email = String(user.email || body.email || '');
     const requestedRole = body.requestedRole === 'admin' ? 'admin' : 'borrower';
     const requestedAt = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 
     const content =
-      `Pedido de liberacao de acesso\n\n` +
+      `Pedido de liberação de acesso\n\n` +
       `Nome: ${name}\n` +
-      `Email: ${email}\n` +
-      `ID do usuario: ${user.id}\n` +
+      `E-mail: ${email}\n` +
+      `ID do usuário: ${user.id}\n` +
       `Acesso solicitado: ${requestedRole}\n` +
       `Data: ${requestedAt}\n\n` +
       `Para liberar no SQL Editor do Supabase:\n\n` +
@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
       `set role = '${requestedRole}', full_name = '${escapeSql(name)}'\n` +
       `where id = '${user.id}';`;
 
-    await sendEmail(`Liberar acesso ao Estudio ASSEGO: ${name}`, content);
+    await sendEmail(`Liberar acesso ao Estúdio ASSEGO: ${name}`, content);
 
     return new Response(JSON.stringify({ ok: true }), {
       headers: { ...cors, 'Content-Type': 'application/json' },

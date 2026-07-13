@@ -1,34 +1,34 @@
 # CODEX_PROJECT_CONTEXT
 
-## Atualizacao - notificacoes e periodo de gravacao (2026-07-13)
+## Atualização - notificações e período de gravação (2026-07-13)
 
-- A barra de News exibe somente a data da ultima atualizacao e o resumo das melhorias entregues. O layout autenticado possui overrides finais para iPhone XR e modelos atuais, incluindo safe areas, `100dvh`, modais, notificacoes e navegacao inferior.
-- O formulario de agendamento nao solicita mais RG do solicitante nem dos convidados. Novos payloads sao normalizados no backend e descartam esse campo mesmo quando enviados por clientes antigos; CPF e os demais dados continuam obrigatorios.
-- Toda nova solicitacao de gravacao cria avisos pessoais em `app_notifications` para perfis `admin` e `developer`. O sininho e visivel a qualquer usuario autenticado, com leitura individual/em lote, atualizacao em tempo real e polling de contingencia.
-- Somente o aprovador principal decide. `decide-booking` chama a RPC autenticada `set_booking_status_v1`; a decisao, o aviso no app do solicitante e o outbox do email sao gravados na mesma transacao. A Edge Function envia o email de aprovacao/rejeicao sem expor secrets no frontend.
-- Agendamentos agora possuem inicio e termino (`requested_time` e `requested_end_time`). O fluxo regular permite selecionar um intervalo continuo de blocos livres; o fluxo excepcional aceita intervalos de 30 minutos entre 17h30 e 23h30. O banco serializa pedidos por data e rejeita periodos sobrepostos.
-- Em 13/07/2026 foram aplicados no Supabase de producao: papel `developer`, controle de pedidos de equipamento, remocao definitiva das colunas de RG, hardening fases 1 e 2 e todas as Edge Functions correspondentes.
-- O envio SMTP e tentado na propria Edge Function e falhas ficam preservadas em `notification_outbox`. A funcao autenticada `process-notification-outbox` e o cron `assego-process-notification-outbox` reprocessam a fila a cada 5 minutos com backoff; uma falha artificial foi recuperada e marcada como `sent` no teste de producao.
-- O fluxo autenticado foi validado ponta a ponta em producao depois do hardening: cadastro temporario, agendamento, assinatura/hash, email da equipe, notificacao no sininho, aprovacao, email do solicitante e limpeza dos dados de QA. O fluxo de pedido/aprovacao de equipamento tambem passou usando as RPCs restritas.
-
----
-
-## Atualizacao - materiais do programa e transmissao
-
-- O formulario de agendamento coleta nome do programa, formato gravado/ao vivo, orientacoes de producao, arquivos e links externos.
-- Materiais enviados pelo botao usam o bucket privado booking-materials, limitado por RLS ao proprio usuario e a equipe autorizada. O email recebe links assinados temporarios; videos maiores devem ser informados por link HTTPS.
-- O app nunca solicita nem envia login, senha ou codigo de verificacao do YouTube. Para programas ao vivo, coleta o link do canal e exige acesso delegado pelas permissoes do YouTube Studio.
-- A ativacao em producao depende de aplicar security_hardening_phase1.sql e publicar a versao correspondente da Edge Function submit-booking antes do frontend.
+- A barra de News exibe somente a data da última atualização e o resumo das melhorias entregues. O layout autenticado possui overrides finais para iPhone XR e modelos atuais, incluindo safe areas, `100dvh`, modais, notificações e navegação inferior.
+- O formulário de agendamento não solicita mais RG do solicitante nem dos convidados. Novos payloads são normalizados no backend e descartam esse campo mesmo quando enviados por clientes antigos; CPF e os demais dados continuam obrigatórios.
+- Toda nova solicitação de gravação cria avisos pessoais em `app_notifications` para perfis `admin` e `developer`. O sininho é visível a qualquer usuário autenticado, com leitura individual/em lote, atualização em tempo real e polling de contingência.
+- Somente o aprovador principal decide. `decide-booking` chama a RPC autenticada `set_booking_status_v1`; a decisão, o aviso no app do solicitante e o outbox do e-mail são gravados na mesma transação. A Edge Function envia o e-mail de aprovação/rejeição sem expor secrets no frontend.
+- Agendamentos agora possuem início e término (`requested_time` e `requested_end_time`). O fluxo regular permite selecionar um intervalo contínuo de blocos livres; o fluxo excepcional aceita intervalos de 30 minutos entre 17h30 e 23h30. O banco serializa pedidos por data e rejeita períodos sobrepostos.
+- Em 13/07/2026 foram aplicados no Supabase de produção: papel `developer`, controle de pedidos de equipamento, remoção definitiva das colunas de RG, hardening fases 1 e 2 e todas as Edge Functions correspondentes.
+- O envio SMTP é tentado na própria Edge Function e falhas ficam preservadas em `notification_outbox`. A função autenticada `process-notification-outbox` e o cron `assego-process-notification-outbox` reprocessam a fila a cada 5 minutos com backoff; uma falha artificial foi recuperada e marcada como `sent` no teste de produção.
+- O fluxo autenticado foi validado ponta a ponta em produção depois do hardening: cadastro temporário, agendamento, assinatura/hash, e-mail da equipe, notificação no sininho, aprovação, e-mail do solicitante e limpeza dos dados de QA. O fluxo de pedido/aprovação de equipamento também passou usando as RPCs restritas.
 
 ---
 
-## Atualizacao - 2026-07-13
+## Atualização - materiais do programa e transmissão
 
-- O formulario de acesso e gravacao informa que os dados pessoais sao solicitados pela Presidencia da ASSEGO.
-- O frontend envia chaves de idempotencia nas solicitacoes de agendamento e de equipamento.
-- vercel.json e netlify.toml registram cabecalhos de seguranca do frontend.
-- Os scripts security_hardening_phase1.sql e security_hardening_phase2.sql e a nova submit-booking formam uma implantacao em etapas; precisam ser aplicados/publicados no Supabase antes de considerar o hardening ativo em producao.
-- src-tauri e as dependencias Tauri sao o scaffold inicial do aplicativo desktop. O build web esta validado; o executavel nativo ainda depende da instalacao do Rust/Cargo e da validacao especifica do Tauri.
+- O formulário de agendamento coleta nome do programa, formato gravado/ao vivo, orientações de produção, arquivos e links externos.
+- Materiais enviados pelo botão usam o bucket privado booking-materials, limitado por RLS ao próprio usuário e à equipe autorizada. O e-mail recebe links assinados temporários; vídeos maiores devem ser informados por link HTTPS.
+- O app nunca solicita nem envia login, senha ou código de verificação do YouTube. Para programas ao vivo, coleta o link do canal e exige acesso delegado pelas permissões do YouTube Studio.
+- A ativação em produção depende de aplicar security_hardening_phase1.sql e publicar a versão correspondente da Edge Function submit-booking antes do frontend.
+
+---
+
+## Atualização - 2026-07-13
+
+- O formulário de acesso e gravação informa que os dados pessoais são solicitados pela Presidência da ASSEGO.
+- O frontend envia chaves de idempotência nas solicitações de agendamento e de equipamento.
+- vercel.json e netlify.toml registram cabeçalhos de segurança do frontend.
+- Os scripts security_hardening_phase1.sql e security_hardening_phase2.sql e a nova submit-booking formam uma implantação em etapas; precisam ser aplicados/publicados no Supabase antes de considerar o hardening ativo em produção.
+- src-tauri e as dependências Tauri são o scaffold inicial do aplicativo desktop. O build web está validado; o executável nativo ainda depende da instalação do Rust/Cargo e da validação específica do Tauri.
 
 ---
 
@@ -60,7 +60,7 @@ institucional ASSEGO (fundo escuro, azul + amarelo, Montserrat).
 ## 3. Stack
 
 - React 18 + Vite + TypeScript, CSS puro (`src/styles.css`), PWA.
-- Supabase: **Auth real** (email/senha + Google OAuth) e **banco como fonte
+- Supabase: **Auth real** (e-mail/senha + Google OAuth) e **banco como fonte
   primária** de dados. `localStorage` é apenas **fallback** quando o Supabase
   não está configurado. Edge Functions em Deno.
 - Deploy do front: Netlify/Vercel.

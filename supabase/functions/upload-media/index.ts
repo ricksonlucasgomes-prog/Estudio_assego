@@ -1,6 +1,6 @@
 // Supabase Edge Function: upload-media
 // Recebe a foto do equipamento (autenticada), envia para o Google Drive do Lucas
-// (pasta ja definida) e dispara um email de aviso com a foto anexada.
+// (pasta já definida) e dispara um e-mail de aviso com a foto anexada.
 //
 // NUNCA colocar estes segredos no frontend. Configure com:
 //   supabase secrets set GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... \
@@ -87,13 +87,13 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: cors });
 
   try {
-    // Autenticacao: exige um usuario Supabase logado.
+    // Autenticação: exige um usuário Supabase logado.
     const authHeader = req.headers.get('Authorization') ?? '';
     const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: userData } = await sb.auth.getUser();
-    if (!userData?.user) return new Response(JSON.stringify({ error: 'nao autenticado' }), { status: 401, headers: cors });
+    if (!userData?.user) return new Response(JSON.stringify({ error: 'não autenticado' }), { status: 401, headers: cors });
 
     const { photo, title, equipmentName, user, email } = await req.json();
     if (!photo) return new Response(JSON.stringify({ error: 'foto ausente' }), { status: 400, headers: cors });

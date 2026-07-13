@@ -264,7 +264,7 @@ async function sendBookingNotificationEmail(
     ? guests.map((guest, index) =>
         `${index + 1}. ${text(guest.name, 160) || '-'}\n` +
         `   CPF: ${text(guest.cpf, 20) || '-'}\n` +
-        `   Email: ${text(guest.email, 254) || '-'}\n` +
+        `   E-mail: ${text(guest.email, 254) || '-'}\n` +
         `   WhatsApp: ${text(guest.whatsapp, 30) || '-'}\n` +
         `   Rede social: ${text(guest.social, 120) || '-'}`
       ).join('\n\n')
@@ -273,7 +273,7 @@ async function sendBookingNotificationEmail(
     ? materialAccessLinks.map((material, index) =>
         `${index + 1}. ${material.name || 'Material'} (${material.type || 'arquivo'}, ${Math.round(material.size / 1024)} KB)\n   ${material.url}`
       ).join('\n\n')
-    : 'Nenhum arquivo enviado pelo formulario.'
+    : 'Nenhum arquivo enviado pelo formulário.'
   const externalMaterialsList = externalLinks.length
     ? externalLinks.map((url, index) => `${index + 1}. ${url}`).join('\n')
     : 'Nenhum link externo informado.'
@@ -291,26 +291,26 @@ async function sendBookingNotificationEmail(
     await client.send({
       from: gmailUser,
       to: recipients,
-      subject: `Nova solicitacao de agendamento - ${safeHeader(requester.name)}`,
+      subject: `Nova solicitação de agendamento - ${safeHeader(requester.name)}`,
       content:
-        `Nova solicitacao de agendamento no Assego Studio.\n\n` +
+        `Nova solicitação de agendamento no Assego Studio.\n\n` +
         `===== Dados do solicitante =====\n` +
         `Nome: ${text(requester.name, 160) || '-'}\n` +
         `CPF: ${text(requester.cpf, 20) || '-'}\n` +
-        `Email: ${text(requester.email, 254) || '-'}\n` +
+        `E-mail: ${text(requester.email, 254) || '-'}\n` +
         `WhatsApp: ${text(requester.whatsapp, 30) || '-'}\n` +
         `Rede social: ${text(requester.social, 120) || '-'}\n\n` +
         `Data: ${text(booking.date, 10)}\n` +
-        `Horario de inicio: ${text(booking.time, 5)}\n` +
-        `Horario de termino: ${text(booking.endTime, 5)}\n` +
-        `Tipo: ${text(booking.time, 5) > '17:00' ? 'Solicitacao excepcional apos as 17h' : 'Horario regular'}\n\n` +
+        `Horário de início: ${text(booking.time, 5)}\n` +
+        `Horário de término: ${text(booking.endTime, 5)}\n` +
+        `Tipo: ${text(booking.time, 5) > '17:00' ? 'Solicitação excepcional após as 17h' : 'Horário regular'}\n\n` +
         `===== Programa =====\n` +
         `Nome: ${text(program.name, 160) || '-'}\n` +
         `Formato: ${program.format === 'live' ? 'Ao vivo' : 'Gravado'}\n` +
-        `Orientacoes: ${text(program.productionNotes, 2000) || 'Nenhuma orientacao adicional.'}\n` +
-        `Canal do YouTube: ${text(program.youtubeChannelUrl, 500) || 'Nao se aplica'}\n` +
-        `Acesso ao canal: ${program.format === 'live' ? 'Permissao delegada pelo YouTube Studio; nenhuma senha coletada.' : 'Nao se aplica'}\n\n` +
-        `===== Arquivos privados (links validos por 7 dias) =====\n${storedMaterialsList}\n\n` +
+        `Orientações: ${text(program.productionNotes, 2000) || 'Nenhuma orientação adicional.'}\n` +
+        `Canal do YouTube: ${text(program.youtubeChannelUrl, 500) || 'Não se aplica'}\n` +
+        `Acesso ao canal: ${program.format === 'live' ? 'Permissão delegada pelo YouTube Studio; nenhuma senha coletada.' : 'Não se aplica'}\n\n` +
+        `===== Arquivos privados (links válidos por 7 dias) =====\n${storedMaterialsList}\n\n` +
         `===== Links de materiais externos =====\n${externalMaterialsList}\n\n` +
         `===== Convidados (${guests.length}) =====\n${guestsList}\n\n` +
         `Assinatura digital registrada para ${text(payload.signer_name, 160)}.\n` +
@@ -324,21 +324,21 @@ async function sendBookingNotificationEmail(
 serve(async (req) => {
   const origin = req.headers.get('origin') ?? ''
   if (origin && !ALLOWED_ORIGINS.has(origin)) {
-    return jsonResponse(req, { error: 'Origem nao autorizada.' }, 403)
+    return jsonResponse(req, { error: 'Origem não autorizada.' }, 403)
   }
 
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
-  if (req.method !== 'POST') return jsonResponse(req, { error: 'Metodo nao permitido.' }, 405)
+  if (req.method !== 'POST') return jsonResponse(req, { error: 'Método não permitido.' }, 405)
 
   const requestId = crypto.randomUUID()
 
   try {
     const authHeader = req.headers.get('Authorization') ?? ''
-    if (!authHeader.startsWith('Bearer ')) return jsonResponse(req, { error: 'Nao autenticado.' }, 401)
+    if (!authHeader.startsWith('Bearer ')) return jsonResponse(req, { error: 'Não autenticado.' }, 401)
 
     const rawBody = await req.text()
     if (new TextEncoder().encode(rawBody).length > MAX_BODY_BYTES) {
-      return jsonResponse(req, { error: 'Solicitacao muito grande.' }, 413)
+      return jsonResponse(req, { error: 'Solicitação muito grande.' }, 413)
     }
 
     let body: JsonRecord
@@ -347,7 +347,7 @@ serve(async (req) => {
       if (!isRecord(parsed)) throw new Error('INVALID_JSON')
       body = parsed
     } catch {
-      return jsonResponse(req, { error: 'JSON invalido.' }, 400)
+      return jsonResponse(req, { error: 'JSON inválido.' }, 400)
     }
 
     const input = validatePayload(body)
@@ -361,7 +361,7 @@ serve(async (req) => {
       auth: { persistSession: false },
     })
     const { data: { user }, error: userError } = await authClient.auth.getUser()
-    if (userError || !user?.email) return jsonResponse(req, { error: 'Nao autenticado.' }, 401)
+    if (userError || !user?.email) return jsonResponse(req, { error: 'Não autenticado.' }, 401)
 
     const submittedMaterials = Array.isArray(input.booking.materials)
       ? input.booking.materials.filter(isRecord)
@@ -374,7 +374,7 @@ serve(async (req) => {
         || fileName.includes('/')
         || !/^\d{2}-[a-f0-9]{24}-/i.test(fileName)
     })) {
-      return jsonResponse(req, { error: 'Material de agendamento invalido.' }, 400)
+      return jsonResponse(req, { error: 'Material de agendamento inválido.' }, 400)
     }
 
     const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } })
@@ -386,7 +386,7 @@ serve(async (req) => {
       if (storageError) throw storageError
       const storedNames = new Set((storedObjects ?? []).map((item) => item.name))
       if (submittedMaterials.some((material) => !storedNames.has(text(material.path, 500).slice(expectedPrefix.length)))) {
-        return jsonResponse(req, { error: 'Um ou mais materiais enviados nao foram encontrados.' }, 400)
+        return jsonResponse(req, { error: 'Um ou mais materiais enviados não foram encontrados.' }, 400)
       }
     }
     const { data: allowed, error: rateError } = await admin.rpc('consume_rate_limit_v1', {
@@ -396,7 +396,7 @@ serve(async (req) => {
       p_window_seconds: 3600,
     })
     if (rateError) throw rateError
-    if (!allowed) return jsonResponse(req, { error: 'Muitas solicitacoes. Tente novamente mais tarde.' }, 429)
+    if (!allowed) return jsonResponse(req, { error: 'Muitas solicitações. Tente novamente mais tarde.' }, 429)
 
     const { data: result, error: rpcError } = await admin.rpc('create_signed_booking_v1', {
       p_user_id: user.id,
@@ -412,9 +412,9 @@ serve(async (req) => {
 
     if (rpcError) {
       if (/duplicate key|studio_booking_active_slot_uniq/i.test(rpcError.message)) {
-        return jsonResponse(req, { error: 'Este horario acabou de ser reservado.' }, 409)
+        return jsonResponse(req, { error: 'Este horário acabou de ser reservado.' }, 409)
       }
-      if (/Data ou (horario|periodo)|conflita|Dados obrigatorios|Convidado|assinatura|termo/i.test(rpcError.message)) {
+      if (/Data ou (hor[aá]rio|per[ií]odo)|conflita|Dados obrigat[oó]rios|Convidado|assinatura|termo/i.test(rpcError.message)) {
         return jsonResponse(req, { error: rpcError.message }, 400)
       }
       throw rpcError
@@ -498,17 +498,17 @@ serve(async (req) => {
         })
         .eq('id', outboxId)
 
-      console.error(`[${requestId}] Falha de notificacao`, message)
+      console.error(`[${requestId}] Falha de notificação`, message)
       return jsonResponse(req, {
         success: true,
         booking_id: bookingId,
         signature_hash: result?.signature_hash,
         notification_status: 'pending_retry',
-        warning: 'Pedido registrado. O aviso por email esta aguardando nova tentativa.',
+        warning: 'Pedido registrado. O aviso por e-mail está aguardando nova tentativa.',
       }, 202)
     }
   } catch (error) {
     console.error(`[${requestId}] Falha no submit-booking`, error)
-    return jsonResponse(req, { error: 'Nao foi possivel concluir a solicitacao.', request_id: requestId }, 500)
+    return jsonResponse(req, { error: 'Não foi possível concluir a solicitação.', request_id: requestId }, 500)
   }
 })

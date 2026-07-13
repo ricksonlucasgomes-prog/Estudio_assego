@@ -81,7 +81,7 @@ async function sendRequestEmail(payload: JsonRecord, recipients: string[]): Prom
       to: recipients,
       subject: `Pedido de equipamento - ${safeHeader(requesterName)}`,
       content:
-        `${requesterName || 'Usuario'} (${text(payload.requester_email, 254) || 'email nao informado'}) ` +
+        `${requesterName || 'Usuário'} (${text(payload.requester_email, 254) || 'e-mail não informado'}) ` +
         `pediu acesso ao equipamento "${text(payload.equipment_name, 160)}".\n\n` +
         `Justificativa:\n${text(payload.justification, 1000)}\n\n` +
         'Aprove ou rejeite pelo aplicativo: https://assegostudio.vercel.app',
@@ -94,19 +94,19 @@ async function sendRequestEmail(payload: JsonRecord, recipients: string[]): Prom
 serve(async (req) => {
   const origin = req.headers.get('origin') ?? ''
   if (origin && !ALLOWED_ORIGINS.has(origin)) {
-    return jsonResponse(req, { error: 'Origem nao autorizada.' }, 403)
+    return jsonResponse(req, { error: 'Origem não autorizada.' }, 403)
   }
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
-  if (req.method !== 'POST') return jsonResponse(req, { error: 'Metodo nao permitido.' }, 405)
+  if (req.method !== 'POST') return jsonResponse(req, { error: 'Método não permitido.' }, 405)
 
   const requestId = crypto.randomUUID()
   try {
     const authHeader = req.headers.get('Authorization') ?? ''
-    if (!authHeader.startsWith('Bearer ')) return jsonResponse(req, { error: 'Nao autenticado.' }, 401)
+    if (!authHeader.startsWith('Bearer ')) return jsonResponse(req, { error: 'Não autenticado.' }, 401)
 
     const rawBody = await req.text()
     if (new TextEncoder().encode(rawBody).length > 8192) {
-      return jsonResponse(req, { error: 'Solicitacao muito grande.' }, 413)
+      return jsonResponse(req, { error: 'Solicitação muito grande.' }, 413)
     }
 
     let body: JsonRecord
@@ -115,7 +115,7 @@ serve(async (req) => {
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('INVALID_JSON')
       body = parsed as JsonRecord
     } catch {
-      return jsonResponse(req, { error: 'JSON invalido.' }, 400)
+      return jsonResponse(req, { error: 'JSON inválido.' }, 400)
     }
 
     const idempotencyKey = text(body.idempotencyKey ?? req.headers.get('Idempotency-Key'), 64)
@@ -127,7 +127,7 @@ serve(async (req) => {
       || !equipmentId
       || requesterName.length < 3
       || justification.length < 10) {
-      return jsonResponse(req, { error: 'Dados do pedido invalidos ou incompletos.' }, 400)
+      return jsonResponse(req, { error: 'Dados do pedido inválidos ou incompletos.' }, 400)
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
@@ -140,7 +140,7 @@ serve(async (req) => {
       auth: { persistSession: false },
     })
     const { data: { user }, error: userError } = await authClient.auth.getUser()
-    if (userError || !user?.email) return jsonResponse(req, { error: 'Nao autenticado.' }, 401)
+    if (userError || !user?.email) return jsonResponse(req, { error: 'Não autenticado.' }, 401)
 
     const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } })
     const { data: allowed, error: rateError } = await admin.rpc('consume_rate_limit_v1', {
@@ -228,16 +228,16 @@ serve(async (req) => {
         next_attempt_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
         updated_at: new Date().toISOString(),
       }).eq('id', outboxId)
-      console.error(`[${requestId}] Falha no email de equipamento`, message)
+      console.error(`[${requestId}] Falha no e-mail de equipamento`, message)
       return jsonResponse(req, {
         success: true,
         id: equipmentRequestId,
         notification_status: 'pending_retry',
-        warning: 'Pedido registrado. O email aguarda nova tentativa.',
+        warning: 'Pedido registrado. O e-mail aguarda nova tentativa.',
       }, 202)
     }
   } catch (error) {
     console.error(`[${requestId}] Falha no request-equipment`, error)
-    return jsonResponse(req, { error: 'Nao foi possivel enviar o pedido.', request_id: requestId }, 500)
+    return jsonResponse(req, { error: 'Não foi possível enviar o pedido.', request_id: requestId }, 500)
   }
 })

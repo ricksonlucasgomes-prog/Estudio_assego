@@ -4,7 +4,7 @@
 -- Execute antes de publicar as Edge Functions endurecidas. Esta fase cria
 -- RPCs transacionais, outbox, idempotencia e identidade do aprovador sem
 -- remover as policies antigas. A fase 2 fecha o acesso direto somente depois
--- que o novo fluxo estiver validado em producao.
+-- que o novo fluxo estiver validado em produção.
 -- =====================================================================
 
 create extension if not exists "pgcrypto";
@@ -12,7 +12,7 @@ create extension if not exists "pgcrypto";
 begin;
 
 -- Materiais enviados pelo solicitante ficam privados. O primeiro diretorio
--- do objeto e sempre o UUID do proprio usuario autenticado.
+-- do objeto é sempre o UUID do próprio usuário autenticado.
 insert into storage.buckets (
   id,
   name,
@@ -53,8 +53,8 @@ using (
   )
 );
 
--- Nao conceder UPDATE ou DELETE ao solicitante: depois do upload, o material
--- referenciado na assinatura e no email precisa permanecer imutavel.
+-- Não conceder UPDATE ou DELETE ao solicitante: depois do upload, o material
+-- referenciado na assinatura e no e-mail precisa permanecer imutável.
 
 -- Identidade imutavel do aprovador principal. Nenhuma policy cliente.
 create table if not exists public.lead_approvers (
@@ -201,7 +201,7 @@ create unique index if not exists studio_equipment_request_idempotency_uniq
   on public.studio_equipment_requests (requester_id, idempotency_key)
   where idempotency_key is not null;
 
--- Impede corrida de duas solicitacoes ativas para o mesmo horario.
+-- Impede corrida de duas solicitações ativas para o mesmo horário.
 do $$
 begin
   if exists (
@@ -334,14 +334,14 @@ declare
   v_guest_count integer;
 begin
   if p_user_id is null or p_idempotency_key is null then
-    raise exception 'Usuario e chave de idempotencia sao obrigatorios.';
+    raise exception 'Usuário e chave de idempotência são obrigatórios.';
   end if;
 
   if not exists (
     select 1 from auth.users u
     where u.id = p_user_id and lower(coalesce(u.email, '')) = lower(trim(coalesce(p_auth_email, '')))
   ) then
-    raise exception 'Identidade autenticada invalida.';
+    raise exception 'Identidade autenticada inválida.';
   end if;
 
   select r.id into v_booking_id
@@ -383,7 +383,7 @@ begin
     or length(v_requester_social) not between 2 and 120
     or length(v_signer_name) not between 3 and 160
   then
-    raise exception 'Dados obrigatorios ausentes ou fora dos limites.';
+    raise exception 'Dados obrigatórios ausentes ou fora dos limites.';
   end if;
 
   if lower(v_signer_name) <> lower(v_requester_name) then
@@ -393,7 +393,7 @@ begin
   begin
     v_requested_date := (p_booking->>'date')::date;
   exception when others then
-    raise exception 'Data de agendamento invalida.';
+    raise exception 'Data de agendamento inválida.';
   end;
 
   v_requested_time := trim(coalesce(p_booking->>'time', ''));
@@ -418,10 +418,10 @@ begin
       )
     )
   then
-    raise exception 'Data ou periodo fora da agenda permitida.';
+    raise exception 'Data ou período fora da agenda permitida.';
   end if;
 
-  -- Serializa pedidos do mesmo dia e impede qualquer sobreposicao de periodo.
+  -- Serializa pedidos do mesmo dia e impede qualquer sobreposição de período.
   perform pg_advisory_xact_lock(hashtext(v_requested_date::text));
   if exists (
     select 1
@@ -438,11 +438,11 @@ begin
         end
       ) > v_requested_time
   ) then
-    raise exception 'O periodo solicitado conflita com outro agendamento ativo.';
+    raise exception 'O período solicitado conflita com outro agendamento ativo.';
   end if;
 
   if jsonb_typeof(coalesce(p_guests, '[]'::jsonb)) <> 'array' then
-    raise exception 'A lista de convidados e invalida.';
+    raise exception 'A lista de convidados é inválida.';
   end if;
 
   v_guest_count := jsonb_array_length(coalesce(p_guests, '[]'::jsonb));
@@ -573,8 +573,8 @@ begin
     p.id,
     'booking:' || v_booking_id::text || ':created',
     'booking_created',
-    'Nova solicitacao de gravacao',
-    v_requester_name || ' solicitou o estudio para ' || to_char(v_requested_date, 'DD/MM/YYYY') || ', das ' || v_requested_time || ' as ' || v_requested_end_time || '.',
+    'Nova solicitação de gravação',
+    v_requester_name || ' solicitou o estúdio para ' || to_char(v_requested_date, 'DD/MM/YYYY') || ', das ' || v_requested_time || ' às ' || v_requested_end_time || '.',
     v_booking_id,
     jsonb_build_object('date', v_requested_date, 'time', v_requested_time, 'endTime', v_requested_end_time, 'requesterName', v_requester_name)
   from public.profiles p
@@ -597,7 +597,7 @@ grant execute on function public.create_signed_booking_v1(
   uuid, text, uuid, jsonb, jsonb, jsonb, jsonb, text, text
 ) to service_role;
 
--- Alteracao de status, aviso no app e outbox de email na mesma transacao.
+-- Alteração de status, aviso no app e outbox de e-mail na mesma transação.
 drop function if exists public.set_booking_status_v1(uuid, text);
 create function public.set_booking_status_v1(p_id uuid, p_status text)
 returns jsonb
@@ -612,11 +612,11 @@ declare
   v_status_label text;
 begin
   if not public.current_user_is_lead_approver() then
-    raise exception 'Apenas o aprovador principal pode alterar a solicitacao.';
+    raise exception 'Apenas o aprovador principal pode alterar a solicitação.';
   end if;
 
   if p_status not in ('approved', 'rejected') then
-    raise exception 'Status invalido.';
+    raise exception 'Status inválido.';
   end if;
 
   select * into v_booking
@@ -625,7 +625,7 @@ begin
   for update;
 
   if not found then
-    raise exception 'Solicitacao inexistente.';
+    raise exception 'Solicitação inexistente.';
   end if;
 
   if v_booking.status = p_status then
@@ -643,7 +643,7 @@ begin
   end if;
 
   if v_booking.status <> 'requested' then
-    raise exception 'Solicitacao ja finalizada.';
+    raise exception 'Solicitação já finalizada.';
   end if;
 
   update public.studio_booking_requests
@@ -674,8 +674,8 @@ begin
     v_booking.requester_id,
     'booking:' || p_id::text || ':status:' || p_status,
     case when p_status = 'approved' then 'booking_approved' else 'booking_rejected' end,
-    case when p_status = 'approved' then 'Gravacao aprovada' else 'Solicitacao nao aprovada' end,
-    'Sua solicitacao para ' || to_char(v_booking.requested_date, 'DD/MM/YYYY') || ', das ' || v_booking.requested_time || ' as ' || coalesce(v_booking.requested_end_time, 'horario nao informado') || ', foi ' || v_status_label || '.',
+    case when p_status = 'approved' then 'Gravação aprovada' else 'Solicitação não aprovada' end,
+    'Sua solicitação para ' || to_char(v_booking.requested_date, 'DD/MM/YYYY') || ', das ' || v_booking.requested_time || ' às ' || coalesce(v_booking.requested_end_time, 'horário não informado') || ', foi ' || v_status_label || '.',
     p_id,
     jsonb_build_object('date', v_booking.requested_date, 'time', v_booking.requested_time, 'endTime', v_booking.requested_end_time, 'status', p_status)
   )
@@ -720,7 +720,7 @@ declare
   v_justification text := trim(coalesce(p_request->>'justification', ''));
 begin
   if p_user_id is null or p_idempotency_key is null then
-    raise exception 'Usuario e chave de idempotencia sao obrigatorios.';
+    raise exception 'Usuário e chave de idempotência são obrigatórios.';
   end if;
 
   if not exists (
@@ -802,11 +802,11 @@ set search_path = pg_catalog, public
 as $$
 begin
   if not public.current_user_is_lead_approver() then
-    raise exception 'Apenas o aprovador principal pode alterar a solicitacao.';
+    raise exception 'Apenas o aprovador principal pode alterar a solicitação.';
   end if;
 
   if p_status not in ('approved', 'rejected') then
-    raise exception 'Status invalido.';
+    raise exception 'Status inválido.';
   end if;
 
   update public.studio_equipment_requests
@@ -814,7 +814,7 @@ begin
   where id = p_id and status = 'requested';
 
   if not found then
-    raise exception 'Solicitacao inexistente ou ja finalizada.';
+    raise exception 'Solicitação inexistente ou já finalizada.';
   end if;
 end;
 $$;

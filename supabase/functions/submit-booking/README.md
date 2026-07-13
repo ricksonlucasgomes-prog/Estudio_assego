@@ -1,28 +1,28 @@
-# submit-booking - solicitacao interna no app
+# submit-booking - solicitação interna no app
 
-A Edge Function `submit-booking` grava a solicitacao de agendamento e a
-assinatura digital. Ela nao envia WhatsApp, Telegram ou n8n neste fluxo.
+A Edge Function `submit-booking` grava a solicitação de agendamento e a
+assinatura digital. Ela não envia WhatsApp, Telegram ou n8n neste fluxo.
 
-Depois que a reserva e a assinatura sao gravadas, a notificacao acontece dentro
-do proprio app:
+Depois que a reserva e a assinatura são gravadas, a notificação acontece dentro
+do próprio app:
 
-1. o solicitante recebe sucesso no formulario;
+1. o solicitante recebe sucesso no formulário;
 2. os aprovadores oficiais entram na aba **Agenda**;
-3. o painel **Notificacoes de agendamento** mostra as solicitacoes pendentes;
-4. cada solicitacao exibe os dados pessoais preenchidos pelo usuario e pelos
+3. o painel **Notificações de agendamento** mostra as solicitações pendentes;
+4. cada solicitação exibe os dados pessoais preenchidos pelo usuário e pelos
    convidados;
-5. Lucas, Badu e Sergio Vinicius podem aprovar ou rejeitar.
+5. Lucas, Badu e Sérgio Vinicius podem aprovar ou rejeitar.
 
 ## Segurança
 
-Os dados pessoais ficam no Supabase e sao lidos pelo frontend apenas via RLS.
+Os dados pessoais ficam no Supabase e são lidos pelo frontend apenas via RLS.
 
-A politica usa `public.current_user_is_booking_approver()`, que exige:
+A política usa `public.current_user_is_booking_approver()`, que exige:
 
 - `profiles.role = 'admin'`;
-- `profiles.full_name` compatível com Lucas, Badu, Sergio Vinicius ou Serginho.
+- `profiles.full_name` compatível com Lucas, Badu, Sérgio Vinicius ou Serginho.
 
-Hoje, para Badu e Sergio receberem as notificacoes internas, eles precisam:
+Hoje, para Badu e Sérgio receberem as notificações internas, eles precisam:
 
 1. criar login no app;
 2. ter seus perfis atualizados para `role = 'admin'`;

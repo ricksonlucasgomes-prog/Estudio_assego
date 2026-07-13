@@ -6,8 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Horario de funcionamento do estudio (seg-sex 9-17, exceto 12h; sab 9-12).
-// weekday: 0=domingo ... 6=sabado. Blocos de 1h.
+// Horário de funcionamento do estúdio (seg-sex 9-17, exceto 12h; sáb 9-12).
+// weekday: 0=domingo ... 6=sábado. Blocos de 1h.
 const BUSINESS_HOURS: Record<number, string[]> = {
   1: ['09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00'],
   2: ['09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00'],
@@ -18,7 +18,7 @@ const BUSINESS_HOURS: Record<number, string[]> = {
 }
 const SLOT_DURATION_MIN = 60
 const DAYS_AHEAD = 45
-const TZ_OFFSET_HOURS = 3 // America/Sao_Paulo (UTC-3), sem horario de verao hoje
+const TZ_OFFSET_HOURS = 3 // America/Sao_Paulo (UTC-3), sem horário de verão hoje
 
 type BusyInterval = { start: number; end: number }
 
@@ -39,12 +39,12 @@ function parseIcsDate(raw: string): number {
   const minute = Number(digits.slice(11, 13))
   const second = Number(digits.slice(13, 15) || '0')
   if (isUtc) return Date.UTC(year, month, day, hour, minute, second)
-  // Sem timezone explicito no ICS: assume horario local de Sao Paulo.
+  // Sem timezone explícito no ICS: assume horário local de São Paulo.
   return Date.UTC(year, month, day, hour + TZ_OFFSET_HOURS, minute, second)
 }
 
 // Parser simples de VEVENT: pega DTSTART/DTEND de cada bloco.
-// Nao expande eventos recorrentes (RRULE) - limitacao conhecida do MVP.
+// Não expande eventos recorrentes (RRULE) - limitação conhecida do MVP.
 function extractBusyIntervals(icsText: string): BusyInterval[] {
   const intervals: BusyInterval[] = []
   const events = icsText.split('BEGIN:VEVENT').slice(1)
@@ -75,7 +75,7 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader) throw new Error('Token de autorizacao ausente.')
+    if (!authHeader) throw new Error('Token de autorização ausente.')
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
@@ -83,13 +83,13 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     })
     const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) throw new Error('Usuario nao autenticado ou token invalido.')
+    if (userError || !user) throw new Error('Usuário não autenticado ou token inválido.')
 
     const icsUrl = Deno.env.get('STUDIO_CALENDAR_ICAL_URL')
-    if (!icsUrl) throw new Error('STUDIO_CALENDAR_ICAL_URL nao configurada.')
+    if (!icsUrl) throw new Error('STUDIO_CALENDAR_ICAL_URL não configurada.')
 
     const icsRes = await fetch(icsUrl)
-    if (!icsRes.ok) throw new Error(`Falha ao buscar agenda do estudio (${icsRes.status}).`)
+    if (!icsRes.ok) throw new Error(`Falha ao buscar agenda do estúdio (${icsRes.status}).`)
     const icsText = await icsRes.text()
     const busy = extractBusyIntervals(icsText)
 
@@ -102,7 +102,7 @@ serve(async (req) => {
       const d = new Date(dayMs)
       const weekday = d.getUTCDay()
       const times = BUSINESS_HOURS[weekday]
-      if (!times) continue // domingo: estudio fechado
+      if (!times) continue // domingo: estúdio fechado
 
       const dateStr = d.toISOString().slice(0, 10)
       const slots = times.map((time) => ({ time, available: !slotIsBusy(dateStr, time, busy) }))
