@@ -5676,3 +5676,154 @@ body::before {
   .landing-preview-actions { min-height: 110px; }
   .landing-preview-tabs { min-height: 38px; }
 }
+
+/* =====================================================================
+   Compatibilidade iPhone: XR e modelos atuais com notch/Dynamic Island
+   ===================================================================== */
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  min-height: 100svh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+.assego-marquee__item {
+  text-transform: none;
+}
+
+@media (max-width: 480px) {
+  .wrap {
+    width: 100%;
+    min-height: 100svh;
+    min-height: 100dvh;
+    padding:
+      calc(10px + env(safe-area-inset-top, 0px))
+      max(12px, env(safe-area-inset-right, 0px))
+      calc(98px + env(safe-area-inset-bottom, 0px))
+      max(12px, env(safe-area-inset-left, 0px));
+  }
+
+  .assego-marquee {
+    width: 100%;
+    margin-bottom: 10px;
+    border-radius: 12px;
+  }
+
+  .assego-marquee__track {
+    gap: 44px;
+    padding: 7px 0;
+    animation-duration: 34s;
+  }
+
+  .assego-marquee__item {
+    gap: 9px;
+    font-size: 9px;
+    letter-spacing: .025em;
+  }
+
+  .brand-top,
+  .session {
+    min-width: 0;
+  }
+
+  .brand-id {
+    min-width: 0;
+  }
+
+  .brand-copy {
+    min-width: 0;
+  }
+
+  .brand-copy h1 {
+    overflow: hidden;
+    font-size: clamp(17px, 5vw, 19px);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .notif-panel {
+    position: fixed;
+    top: calc(70px + env(safe-area-inset-top, 0px));
+    right: max(10px, env(safe-area-inset-right, 0px));
+    left: max(10px, env(safe-area-inset-left, 0px));
+    width: auto;
+    max-height: calc(100dvh - 86px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  }
+
+  .modal-overlay {
+    padding:
+      max(10px, env(safe-area-inset-top, 0px))
+      max(10px, env(safe-area-inset-right, 0px))
+      max(10px, env(safe-area-inset-bottom, 0px))
+      max(10px, env(safe-area-inset-left, 0px));
+  }
+
+  .modal-content,
+  .terms-popup,
+  .availability-card {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 20px);
+    margin: 0;
+    border-radius: 16px;
+  }
+
+  .modal-content input,
+  .modal-content select,
+  .modal-content textarea,
+  .login-card input,
+  .login-card select {
+    font-size: 16px;
+  }
+
+  .bottom-tabs {
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    width: calc(100% - 18px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+    max-width: 430px;
+  }
+
+  .bottom-tabs button {
+    min-height: 48px;
+    padding-inline: 3px;
+    touch-action: manipulation;
+  }
+
+  .bottom-tabs span {
+    font-size: clamp(9px, 2.7vw, 11px);
+  }
+
+  .install-fab {
+    right: max(12px, env(safe-area-inset-right, 0px));
+    bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+    max-width: calc(100% - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+  }
+}
+
+@media (max-width: 380px) {
+  .wrap {
+    padding-right: max(9px, env(safe-area-inset-right, 0px));
+    padding-left: max(9px, env(safe-area-inset-left, 0px));
+  }
+
+  .bottom-tabs span {
+    font-size: 9px;
+  }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .modal-overlay {
+    padding-top: max(6px, env(safe-area-inset-top, 0px));
+    padding-bottom: max(6px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .modal-content,
+  .terms-popup,
+  .availability-card {
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 12px);
+  }
+}

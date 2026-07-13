@@ -101,7 +101,7 @@ const EMAIL_RECIPIENTS = ['ricksonlucasgomes@gmail.com', 'comunicacaoassego@gmai
 // quarto usuário). Lucas Rickson é 'developer' (acesso total), não admin,
 // mas continua sendo o aprovador único — ver isLeadApprover.
 const BOOKING_APPROVERS = ['Lucas Rickson', 'Badu', 'Sergio Vinicius', 'Sgt. Tiago Raiz'];
-const PODCAST_NOTICE = 'App ainda em desenvolvimento - dev: Lucas Rickson - Novas atualizações em breve';
+const PODCAST_NOTICE = 'Última atualização: 13/07/2026 — Notificações no app e por email; horários de início e término; mini-calendário; envio seguro de materiais; formulário sem RG; melhorias de segurança e adaptação para iPhone';
 const UPLOAD_ENDPOINT = import.meta.env.VITE_UPLOAD_ENDPOINT as string | undefined;
 const ACCESS_REQUEST_ENDPOINT = import.meta.env.VITE_ACCESS_REQUEST_ENDPOINT as string | undefined;
 const BOOKING_MATERIALS_BUCKET = 'booking-materials';
@@ -1774,7 +1774,7 @@ export function App() {
 
   return (
     <main className="wrap">
-      <div className="assego-marquee" role="marquee" aria-label="Aviso do estúdio">
+      <div className="assego-marquee" aria-label="Últimas melhorias do Assego Studio">
         <div className="assego-marquee__track">
           <span className="assego-marquee__item">{PODCAST_NOTICE}</span>
           <span className="assego-marquee__item">{PODCAST_NOTICE}</span>

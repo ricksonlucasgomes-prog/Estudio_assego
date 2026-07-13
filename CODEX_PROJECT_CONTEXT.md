@@ -2,6 +2,7 @@
 
 ## Atualizacao - notificacoes e periodo de gravacao (2026-07-13)
 
+- A barra de News exibe somente a data da ultima atualizacao e o resumo das melhorias entregues. O layout autenticado possui overrides finais para iPhone XR e modelos atuais, incluindo safe areas, `100dvh`, modais, notificacoes e navegacao inferior.
 - O formulario de agendamento nao solicita mais RG do solicitante nem dos convidados. Novos payloads sao normalizados no backend e descartam esse campo mesmo quando enviados por clientes antigos; CPF e os demais dados continuam obrigatorios.
 - Toda nova solicitacao de gravacao cria avisos pessoais em `app_notifications` para perfis `admin` e `developer`. O sininho e visivel a qualquer usuario autenticado, com leitura individual/em lote, atualizacao em tempo real e polling de contingencia.
 - Somente o aprovador principal decide. `decide-booking` chama a RPC autenticada `set_booking_status_v1`; a decisao, o aviso no app do solicitante e o outbox do email sao gravados na mesma transacao. A Edge Function envia o email de aprovacao/rejeicao sem expor secrets no frontend.
