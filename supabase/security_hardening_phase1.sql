@@ -279,7 +279,10 @@ begin
   v_requested_time := trim(coalesce(p_booking->>'time', ''));
   if v_requested_date < current_date
     or v_requested_date > current_date + 365
-    or v_requested_time not in ('09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00')
+    or not (
+      v_requested_time in ('09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00')
+      or v_requested_time ~ '^(17:30|1[89]:(00|30)|2[0-3]:(00|30))$'
+    )
   then
     raise exception 'Data ou horario fora da agenda permitida.';
   end if;
@@ -358,7 +361,11 @@ begin
       'social', v_requester_social
     ),
     'guests', coalesce(p_guests, '[]'::jsonb),
-    'booking_details', jsonb_build_object('date', v_requested_date, 'time', v_requested_time),
+    'booking_details', jsonb_build_object(
+      'date', v_requested_date,
+      'time', v_requested_time,
+      'scheduleType', case when v_requested_time > '17:00' then 'after_hours' else 'regular' end
+    ),
     'document_name', 'Termo_de_Uso_Assego.pdf',
     'signer_name', v_signer_name,
     'signer_email', lower(trim(p_auth_email)),

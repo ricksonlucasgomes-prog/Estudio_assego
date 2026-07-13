@@ -82,7 +82,9 @@ function validatePayload(body: JsonRecord): {
 
   const date = text(booking.date, 10)
   const time = text(booking.time, 5)
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^(09|10|11|13|14|15|16):00$/.test(time)) {
+  const regularSlot = /^(09|10|11|13|14|15|16):00$/.test(time)
+  const afterHoursSlot = /^(17:30|1[89]:(00|30)|2[0-3]:(00|30))$/.test(time)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || (!regularSlot && !afterHoursSlot)) {
     throw new Error('SLOT_INVALID')
   }
 
@@ -158,7 +160,8 @@ async function sendBookingNotificationEmail(payload: JsonRecord): Promise<void> 
         `WhatsApp: ${text(requester.whatsapp, 30) || '-'}\n` +
         `Rede social: ${text(requester.social, 120) || '-'}\n\n` +
         `Data: ${text(booking.date, 10)}\n` +
-        `Horario: ${text(booking.time, 5)}\n\n` +
+        `Horario: ${text(booking.time, 5)}\n` +
+        `Tipo: ${text(booking.time, 5) > '17:00' ? 'Solicitacao excepcional apos as 17h' : 'Horario regular'}\n\n` +
         `===== Convidados (${guests.length}) =====\n${guestsList}\n\n` +
         `Assinatura digital registrada para ${text(payload.signer_name, 160)}.\n` +
         `Acesse o app para aprovar ou rejeitar: https://assegostudio.vercel.app`,

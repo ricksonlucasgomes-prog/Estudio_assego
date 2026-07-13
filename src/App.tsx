@@ -127,6 +127,14 @@ function formatBookingWhen(date: string | null, time: string | null): string {
   return out || 'Sem data informada';
 }
 
+function formatDateInputValue(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
 // 2. Adicionada a aba de Agenda no Menu
 const MAIN_TABS: TabItem[] = [
   { id: 'agenda', label: 'Agenda', icon: CalendarDays },
@@ -345,6 +353,7 @@ export function App() {
   const [availabilityError, setAvailabilityError] = useState('');
   const [availabilityMonthCursor, setAvailabilityMonthCursor] = useState(() => new Date());
   const [availabilitySelectedDate, setAvailabilitySelectedDate] = useState('');
+  const [afterHoursMode, setAfterHoursMode] = useState(false);
 
   // Painel de admin: solicitações de agendamento para aprovar/rejeitar.
   const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>([]);
@@ -1035,11 +1044,14 @@ export function App() {
 
   // Gate liberado só quando o Termo foi lido até o fim (popup) e assinado.
   const signatureReady = termAccepted && signatureName.trim().length >= 3;
+  const afterHoursMinDate = formatDateInputValue(new Date());
+  const afterHoursMaxDate = formatDateInputValue(new Date(Date.now() + 365 * 24 * 60 * 60 * 1000));
 
   function resetBookingForm() {
     bookingIdempotencyKey.current = crypto.randomUUID();
     setRequesterData({ name: '', rg: '', cpf: '', email: userEmail, whatsapp: '', social: '', date: '', time: '' });
     setGuestsData([]);
+    setAfterHoursMode(false);
     setShowTermPopup(false);
     setTermAccepted(false);
     setSignatureName('');
@@ -1088,15 +1100,26 @@ export function App() {
   }
 
   function openAvailabilityPopup() {
+    const selectedDate = afterHoursMode ? '' : requesterData.date;
+    if (afterHoursMode) {
+      setAfterHoursMode(false);
+      setRequesterData((current) => ({ ...current, date: '', time: '' }));
+    }
     setShowAvailability(true);
-    setAvailabilitySelectedDate(requesterData.date || '');
-    setAvailabilityMonthCursor(requesterData.date ? new Date(`${requesterData.date}T00:00:00`) : new Date());
+    setAvailabilitySelectedDate(selectedDate);
+    setAvailabilityMonthCursor(selectedDate ? new Date(`${selectedDate}T00:00:00`) : new Date());
     loadAvailability();
   }
 
   function pickAvailabilitySlot(date: string, time: string) {
+    setAfterHoursMode(false);
     setRequesterData((current) => ({ ...current, date, time }));
     setShowAvailability(false);
+  }
+
+  function toggleAfterHoursMode() {
+    setAfterHoursMode((current) => !current);
+    setRequesterData((current) => ({ ...current, date: '', time: '' }));
   }
 
   const handleBookingSubmit = async (e: FormEvent) => {
@@ -1109,7 +1132,19 @@ export function App() {
     }
 
     if (!requesterData.date || !requesterData.time) {
-      alert('Escolha uma data e horário disponível na agenda antes de enviar.');
+      alert(afterHoursMode
+        ? 'Informe a data e o horário após as 17h antes de enviar.'
+        : 'Escolha uma data e horário disponível na agenda antes de enviar.');
+      return;
+    }
+
+    if (afterHoursMode && !/^(17:30|1[89]:(00|30)|2[0-3]:(00|30))$/.test(requesterData.time)) {
+      alert('O horário excepcional deve estar entre 17h30 e 23h30, em intervalos de 30 minutos.');
+      return;
+    }
+
+    if (afterHoursMode && (requesterData.date < afterHoursMinDate || requesterData.date > afterHoursMaxDate)) {
+      alert('Escolha uma data entre hoje e os próximos 365 dias.');
       return;
     }
 
@@ -1154,7 +1189,11 @@ export function App() {
             idempotencyKey: bookingIdempotencyKey.current,
             requester: { ...requesterData, email: userEmail },
             guests: guestsData,
-            booking_details: { date: requesterData.date, time: requesterData.time },
+            booking_details: {
+              date: requesterData.date,
+              time: requesterData.time,
+              scheduleType: afterHoursMode ? 'after_hours' : 'regular',
+            },
             signature,
             approvers: BOOKING_APPROVERS,
           }),
@@ -1532,6 +1571,9 @@ export function App() {
                                   <span className="booking-item__when">{formatBookingWhen(req.requested_date, req.requested_time)}</span>
                                 </div>
                                 <div className="booking-item__badges">
+                                  {req.requested_time && req.requested_time > '17:00' && (
+                                    <span className="booking-badge booking-badge--after-hours">Após 17h</span>
+                                  )}
                                   {req.status === 'requested' && <span className="booking-badge booking-badge--new">Nova</span>}
                                   <span className={`booking-badge booking-badge--${req.status}`}>{BOOKING_STATUS_LABEL[req.status]}</span>
                                 </div>
@@ -1561,6 +1603,7 @@ export function App() {
                                       <span><b>RG</b>{req.requester_rg || '-'}</span>
                                       <span><b>CPF</b>{req.requester_cpf || '-'}</span>
                                       <span><b>Rede social</b>{req.requester_social || '-'}</span>
+                                      <span><b>Tipo de horário</b>{req.requested_time && req.requested_time > '17:00' ? 'Excepcional — após as 17h' : 'Horário regular'}</span>
                                     </div>
                                   </div>
 
@@ -2422,10 +2465,62 @@ export function App() {
                 <div className="form-group full">
                   <label>Data e horário</label>
                   <button type="button" className="availability-trigger" onClick={openAvailabilityPopup}>
-                    {requesterData.date && requesterData.time
+                    {!afterHoursMode && requesterData.date && requesterData.time
                       ? formatBookingWhen(requesterData.date, requesterData.time)
                       : 'Escolher data e horário disponível'}
                   </button>
+                  <div className={`after-hours-request ${afterHoursMode ? 'after-hours-request--open' : ''}`}>
+                    <button
+                      type="button"
+                      className="after-hours-request__toggle"
+                      aria-expanded={afterHoursMode}
+                      aria-controls="after-hours-fields"
+                      onClick={toggleAfterHoursMode}
+                    >
+                      <span>
+                        <Clock3 size={18} aria-hidden="true" />
+                        <span>
+                          <strong>Precisa de um horário após as 17h?</strong>
+                          <small>Envie uma solicitação excepcional para análise.</small>
+                        </span>
+                      </span>
+                      {afterHoursMode
+                        ? <ChevronUp size={17} aria-hidden="true" />
+                        : <ChevronDown size={17} aria-hidden="true" />}
+                    </button>
+                    {afterHoursMode && (
+                      <div id="after-hours-fields" className="after-hours-request__fields">
+                        <p>Escolha uma data e um horário entre 17h30 e 23h30. Esta solicitação depende de aprovação e não representa confirmação automática da reserva.</p>
+                        <div className="after-hours-request__grid">
+                          <div className="form-group">
+                            <label htmlFor="after-hours-date">Data pretendida</label>
+                            <input
+                              id="after-hours-date"
+                              aria-required="true"
+                              type="date"
+                              min={afterHoursMinDate}
+                              max={afterHoursMaxDate}
+                              value={requesterData.date}
+                              onChange={(event) => setRequesterData({ ...requesterData, date: event.target.value })}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label htmlFor="after-hours-time">Horário pretendido</label>
+                            <input
+                              id="after-hours-time"
+                              aria-required="true"
+                              type="time"
+                              min="17:30"
+                              max="23:30"
+                              step="1800"
+                              value={requesterData.time}
+                              onChange={(event) => setRequesterData({ ...requesterData, time: event.target.value })}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

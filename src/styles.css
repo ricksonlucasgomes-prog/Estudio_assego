@@ -3533,6 +3533,99 @@ body::before {
 }
 .availability-trigger:hover { border-color: var(--accent-bright); }
 
+.after-hours-request {
+  margin-top: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: rgba(var(--surface-rgb), .48);
+  overflow: hidden;
+}
+
+.after-hours-request--open {
+  border-color: rgba(var(--accent-bright-rgb), .38);
+  background: rgba(var(--accent-bright-rgb), .045);
+}
+
+.after-hours-request__toggle {
+  width: 100%;
+  padding: 12px 13px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+}
+
+.after-hours-request__toggle > span {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.after-hours-request__toggle svg {
+  flex: 0 0 auto;
+  color: var(--accent-bright);
+}
+
+.after-hours-request__toggle strong,
+.after-hours-request__toggle small {
+  display: block;
+}
+
+.after-hours-request__toggle strong {
+  font-size: 13px;
+}
+
+.after-hours-request__toggle small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.after-hours-request__toggle:hover {
+  background: rgba(var(--accent-bright-rgb), .06);
+}
+
+.after-hours-request__toggle:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: -3px;
+}
+
+.after-hours-request__fields {
+  padding: 0 13px 13px;
+  border-top: 1px solid var(--line);
+}
+
+.after-hours-request__fields > p {
+  margin: 12px 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.after-hours-request__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.booking-badge--after-hours {
+  color: var(--accent-bright);
+  background: rgba(var(--accent-bright-rgb), .12);
+  border: 1px solid rgba(var(--accent-bright-rgb), .22);
+}
+
+@media (max-width: 560px) {
+  .after-hours-request__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .availability-card {
   width: min(420px, 100%);
   margin: auto;
