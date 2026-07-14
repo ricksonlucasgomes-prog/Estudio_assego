@@ -7,24 +7,44 @@
 -- Database > Extensions no painel do Supabase (não dá para habilitar
 -- extensão de projeto por SQL de app comum; é um toggle do projeto).
 --
--- Troque <PROJECT_REF> e <ANON_KEY> pelos valores reais do projeto antes
--- de rodar (mesmos valores de VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY).
+-- Requer no Vault o secret cron_secret, igual ao CRON_SECRET configurado
+-- na Edge Function:
+--
+-- select vault.create_secret('valor-forte-aqui', 'cron_secret');
 -- =====================================================================
 
-select cron.schedule(
-  'check-overdue-equipment-daily',
-  '0 13 * * *', -- 13h UTC = 10h em Brasilia (sem horario de verao)
-  $$
-  select net.http_post(
-    url := 'https://<PROJECT_REF>.supabase.co/functions/v1/check-overdue-equipment',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer <ANON_KEY>'
-    ),
-    body := '{}'::jsonb
+create extension if not exists pg_cron;
+create extension if not exists pg_net with schema extensions;
+create extension if not exists supabase_vault with schema vault;
+
+do $$
+begin
+  perform cron.unschedule(jobid)
+  from cron.job
+  where jobname = 'check-overdue-equipment-daily';
+
+  perform cron.schedule(
+    'check-overdue-equipment-daily',
+    '0 13 * * *', -- 13h UTC = 10h em Brasília (sem horário de verão)
+    $cron$
+      select net.http_post(
+        url := 'https://nqjaxsehplhbusrleuhd.supabase.co/functions/v1/check-overdue-equipment',
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json',
+          'x-cron-secret', (
+            select decrypted_secret
+            from vault.decrypted_secrets
+            where name = 'cron_secret'
+            limit 1
+          )
+        ),
+        body := '{}'::jsonb,
+        timeout_milliseconds := 55000
+      );
+    $cron$
   );
-  $$
-);
+end;
+$$;
 
 -- Para conferir/remover depois:
 -- select * from cron.job;
