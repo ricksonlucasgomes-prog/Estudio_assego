@@ -77,30 +77,24 @@ alter table public.studio_booking_participants enable row level security;
 -- supabase/add_developer_role.sql, que ainda precisa ser executada para
 -- o CHECK da coluna aceitar esse valor). Ele passa aqui pelo role check,
 -- sem precisar bater nome, já que só ele pode ter esse papel.
+-- IMPORTANTE (F-04): a autorizacao e baseada apenas no papel (role), nunca em
+-- full_name. Nome e texto livre e falsificavel; usa-lo permitiria a um admin
+-- se renomear como um aprovador legitimo e ler todos os agendamentos (com PII).
+-- Quem VE a lista sao admin/developer; quem DECIDE (aprova/rejeita) continua
+-- restrito ao aprovador unico via current_user_is_lead_approver(). Alinhado a
+-- security_hardening_phase2.sql.
 create or replace function public.current_user_is_booking_approver()
 returns boolean
 language sql
 stable
 security definer
-set search_path = public
+set search_path = pg_catalog, public
 as $$
   select exists (
     select 1
     from public.profiles p
     where p.id = auth.uid()
-      and (
-        p.role = 'developer'
-        or (
-          p.role = 'admin'
-          and (
-            lower(p.full_name) = 'badu'
-            or lower(p.full_name) like 'sergio%'
-            or lower(p.full_name) like 'sérgio%'
-            or lower(p.full_name) = 'serginho'
-            or lower(p.full_name) like '%tiago raiz%'
-          )
-        )
-      )
+      and p.role in ('admin', 'developer')
   );
 $$;
 

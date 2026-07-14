@@ -92,7 +92,7 @@ async function retryBookingCreated(admin: SupabaseClient, payload: JsonRecord): 
 
   const guestLines = guests.length
     ? guests.map((guest, index) =>
-        `${index + 1}. ${text(guest.name, 160)} | CPF: ${text(guest.cpf, 20)} | ` +
+        `${index + 1}. ${text(guest.name, 160)} | ` +
         `E-mail: ${text(guest.email, 254)} | WhatsApp: ${text(guest.whatsapp, 30)} | ` +
         `Rede social: ${text(guest.social, 120)}`
       ).join('\n')
@@ -102,9 +102,10 @@ async function retryBookingCreated(admin: SupabaseClient, payload: JsonRecord): 
     recipients,
     `Nova solicitação de agendamento - ${text(requester.name, 160)}`,
     `Nova solicitação de agendamento no Assego Studio.\n\n` +
-      `Nome: ${text(requester.name, 160)}\nCPF: ${text(requester.cpf, 20)}\n` +
+      `Nome: ${text(requester.name, 160)}\n` +
       `E-mail: ${text(requester.email, 254)}\nWhatsApp: ${text(requester.whatsapp, 30)}\n` +
       `Rede social: ${text(requester.social, 120)}\n\n` +
+      `(CPF do solicitante e dos convidados NAO trafega por e-mail: consulte no app, autenticado, por minimizacao de dados/LGPD.)\n\n` +
       `Data: ${text(booking.date, 10)}\nInício: ${text(booking.time, 5)}\n` +
       `Término: ${text(booking.endTime, 5)}\n\nPrograma: ${text(program.name, 160)}\n` +
       `Formato: ${program.format === 'live' ? 'Ao vivo' : 'Gravado'}\n` +

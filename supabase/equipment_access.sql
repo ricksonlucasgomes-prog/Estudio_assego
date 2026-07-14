@@ -19,19 +19,27 @@ create extension if not exists "pgcrypto";
 --    Requer supabase/add_developer_role.sql (CHECK da coluna) para o
 --    valor 'developer' existir de fato num profile.
 -- ---------------------------------------------------------------------
+-- IMPORTANTE (F-04): a autorizacao NAO usa full_name. Nome e texto livre,
+-- editavel pelo proprio usuario e nao unico -- usa-lo como controle permitiria
+-- que um admin se renomeasse "Lucas..." e assumisse o papel de aprovador unico.
+-- A identidade e ancorada no e-mail de auth.users, que e unico e so pode ser
+-- alterado com re-confirmacao na caixa de destino (mailer_autoconfirm=false).
+-- A fase 1 do hardening (security_hardening_phase1.sql) endurece ainda mais,
+-- passando a checar a tabela lead_approvers por UUID.
 create or replace function public.current_user_is_lead_approver()
 returns boolean
 language sql
 stable
 security definer
-set search_path = public
+set search_path = pg_catalog, public
 as $$
   select exists (
     select 1
     from public.profiles p
+    join auth.users u on u.id = p.id
     where p.id = auth.uid()
       and p.role in ('admin', 'developer')
-      and lower(p.full_name) like 'lucas%'
+      and lower(u.email) = 'ricksonlucasgomes@gmail.com'
   );
 $$;
 

@@ -263,7 +263,6 @@ async function sendBookingNotificationEmail(
   const guestsList = guests.length
     ? guests.map((guest, index) =>
         `${index + 1}. ${text(guest.name, 160) || '-'}\n` +
-        `   CPF: ${text(guest.cpf, 20) || '-'}\n` +
         `   E-mail: ${text(guest.email, 254) || '-'}\n` +
         `   WhatsApp: ${text(guest.whatsapp, 30) || '-'}\n` +
         `   Rede social: ${text(guest.social, 120) || '-'}`
@@ -296,10 +295,10 @@ async function sendBookingNotificationEmail(
         `Nova solicitação de agendamento no Assego Studio.\n\n` +
         `===== Dados do solicitante =====\n` +
         `Nome: ${text(requester.name, 160) || '-'}\n` +
-        `CPF: ${text(requester.cpf, 20) || '-'}\n` +
         `E-mail: ${text(requester.email, 254) || '-'}\n` +
         `WhatsApp: ${text(requester.whatsapp, 30) || '-'}\n` +
         `Rede social: ${text(requester.social, 120) || '-'}\n\n` +
+        `(CPF do solicitante e dos convidados NAO trafega por e-mail: consulte no app, autenticado, por minimizacao de dados/LGPD.)\n\n` +
         `Data: ${text(booking.date, 10)}\n` +
         `Horário de início: ${text(booking.time, 5)}\n` +
         `Horário de término: ${text(booking.endTime, 5)}\n` +
