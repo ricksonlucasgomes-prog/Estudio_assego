@@ -5827,3 +5827,62 @@ body {
     max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 12px);
   }
 }
+
+/* ============================================================= */
+/* Polimento visual v1.0 (aditivo — só refina, não altera layout) */
+/* ============================================================= */
+
+/* Foco visível por teclado (acessibilidade) — só aparece na navegação
+   por teclado, sem afetar o clique de mouse. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Rolagem suave nas âncoras da landing (respeitando reduced-motion). */
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
+/* Botões principais amarelos com leve profundidade e brilho mais premium. */
+.landing-primary-btn,
+.landing-nav-cta {
+  background-image: linear-gradient(180deg, #ffe64a 0%, #ffd400 100%);
+}
+.landing-primary-btn:hover,
+.landing-nav-cta:hover {
+  box-shadow: 0 18px 44px rgba(255, 223, 0, .26);
+}
+.landing-primary-btn:active,
+.landing-nav-cta:active { transform: translateY(0); }
+
+/* Destaque amarelo do título com leve brilho. */
+.landing-hero h1 em {
+  text-shadow: 0 0 34px rgba(255, 223, 0, .28);
+}
+
+/* Cards de recurso: brilho superior sutil ao passar o mouse. */
+.landing-feature-card {
+  position: relative;
+  overflow: hidden;
+}
+.landing-feature-card::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 223, 0, .55), transparent);
+  opacity: 0;
+  transition: opacity .3s ease;
+}
+.landing-feature-card:hover::after { opacity: 1; }
+
+/* Prévia do app: leve elevação ao passar o mouse. */
+.landing-app-preview {
+  transition: transform .4s cubic-bezier(.2, .7, .2, 1), box-shadow .4s ease;
+}
+.landing-product-stage:hover .landing-app-preview {
+  transform: translateY(-6px);
+  box-shadow: 0 44px 120px rgba(0, 0, 0, .55), 0 0 0 8px rgba(255, 255, 255, .03);
+}
