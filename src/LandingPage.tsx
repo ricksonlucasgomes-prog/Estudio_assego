@@ -1,178 +1,180 @@
 import {
-  Activity,
   ArrowRight,
-  Bell,
   CalendarDays,
   Check,
-  CheckCircle2,
-  ClipboardCheck,
   Clock3,
   PackageCheck,
-  Radio,
   ShieldCheck,
-  Video,
+  Smartphone,
 } from 'lucide-react';
+import './landing.css';
 
 type LandingPageProps = {
   onLogin: () => void;
 };
 
-const features = [
+const FEATURES = [
   {
     icon: CalendarDays,
-    label: 'Agenda integrada',
-    title: 'Reservas sem conflito',
-    description: 'Consulte horários, solicite o estúdio e acompanhe cada aprovação em um único fluxo.',
+    title: 'Agenda sem conflito',
+    description: 'Consulte horários livres, solicite o estúdio e acompanhe cada aprovação em um só fluxo.',
   },
   {
     icon: PackageCheck,
-    label: 'Patrimônio protegido',
-    title: 'Controle de equipamentos',
-    description: 'Registre retiradas, devoluções, fotos e conferências com histórico completo.',
+    title: 'Equipamentos sob controle',
+    description: 'Retirada, devolução, foto e conferência com histórico completo — nada se perde.',
   },
   {
     icon: ShieldCheck,
-    label: 'Processos seguros',
-    title: 'Rastreabilidade real',
-    description: 'Permissões por perfil, termos digitais e registros centralizados para toda a equipe.',
+    title: 'Seguro e rastreável',
+    description: 'Acesso por perfil, termo digital assinado e registros auditáveis de cada operação.',
   },
 ];
 
+const STEPS = [
+  { n: '01', title: 'Solicite', text: 'Escolha data, horário e informe o programa e os participantes.' },
+  { n: '02', title: 'Aprovação', text: 'A diretoria avalia; você recebe o retorno no app e por e-mail.' },
+  { n: '03', title: 'Grave', text: 'Chegue com tudo previamente preparado pela equipe do estúdio.' },
+  { n: '04', title: 'Finalize', text: 'Termo aceito, materiais e devoluções registrados ao final.' },
+];
+
+// Microfone + faixa de áudio (mesmo símbolo do ícone do app).
+function MicMark() {
+  return (
+    <svg viewBox="0 0 64 64" role="img" aria-label="Assego Studio">
+      <defs>
+        <linearGradient id="lp-metal" gradientUnits="userSpaceOnUse" x1="32" y1="6" x2="32" y2="36">
+          <stop offset="0" stopColor="#BFD9F7" /><stop offset="0.2" stopColor="#8FBAF0" />
+          <stop offset="0.6" stopColor="#4E8BD8" /><stop offset="1" stopColor="#255C9E" />
+        </linearGradient>
+        <linearGradient id="lp-deep" gradientUnits="userSpaceOnUse" x1="32" y1="30" x2="32" y2="49">
+          <stop offset="0" stopColor="#5E93D8" /><stop offset="1" stopColor="#1E4272" />
+        </linearGradient>
+      </defs>
+      <rect x="24" y="6" width="16" height="30" rx="8" fill="url(#lp-metal)" stroke="#CFE3FF" strokeOpacity="0.35" />
+      <g stroke="#0C1D34" strokeOpacity="0.5" strokeWidth="1.4" strokeLinecap="round">
+        <line x1="27.5" y1="14" x2="36.5" y2="14" /><line x1="27.5" y1="19" x2="36.5" y2="19" /><line x1="27.5" y1="24" x2="36.5" y2="24" />
+      </g>
+      <path d="M20 30 a12 12 0 0 0 24 0" fill="none" stroke="url(#lp-deep)" strokeWidth="3.4" strokeLinecap="round" />
+      <line x1="32" y1="42" x2="32" y2="49" stroke="url(#lp-deep)" strokeWidth="3.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function LandingPage({ onLogin }: LandingPageProps) {
   return (
-    <main className="landing-page">
-      <header className="landing-nav">
-        <a className="landing-brand" href="#inicio" aria-label="Assego Studio — início">
-          <span className="landing-logo"><img src="/logo.png" alt="" /></span>
-          <span className="landing-brand-copy">
-            <strong>ASSEGO Studio</strong>
-            <small>PM &amp; BM</small>
-          </span>
-        </a>
+    <main className="lp">
+      <div className="lp-shell">
+        <header className="lp-nav">
+          <a className="lp-brand" href="#topo" aria-label="Assego Studio — início">
+            <span className="logo"><img src="/logo.png" alt="ASSEGO PM & BM" /></span>
+            <span><b>ASSEGO Studio</b><span>PM &amp; BM</span></span>
+          </a>
+          <nav className="lp-nav-links" aria-label="Navegação">
+            <a href="#recursos">Recursos</a>
+            <a href="#processo">Como funciona</a>
+            <a href="#estudio">Estúdio</a>
+          </nav>
+          <button type="button" className="lp-cta" onClick={onLogin}>
+            Entrar <ArrowRight size={16} aria-hidden="true" />
+          </button>
+        </header>
+      </div>
 
-        <nav className="landing-nav-links" aria-label="Navegação principal">
-          <a href="#recursos">Recursos</a>
-          <a href="#processo">Como funciona</a>
-          <a href="#seguranca">Segurança</a>
-        </nav>
-
-        <button type="button" className="landing-nav-cta" onClick={onLogin}>
-          Entrar no sistema <ArrowRight size={17} />
-        </button>
-      </header>
-
-      <section className="landing-hero" id="inicio">
-        <div className="landing-hero-copy">
-          <div className="landing-status-pill">
-            <span /> Plataforma interna ASSEGO
-          </div>
-          <h1>O estúdio,<br />sob controle.<em>Do agendamento à entrega.</em></h1>
-          <p>
-            Uma plataforma exclusiva para gerenciar reservas, equipamentos e rotinas do estúdio da ASSEGO com clareza, segurança e controle.
-          </p>
-          <div className="landing-hero-actions">
-            <button type="button" className="landing-primary-btn" onClick={onLogin}>
-              Acessar plataforma <ArrowRight size={19} />
-            </button>
-            <a className="landing-secondary-btn" href="#recursos">Conhecer recursos</a>
-          </div>
-          <div className="landing-trust-row" aria-label="Diferenciais da plataforma">
-            <span><Check size={15} /> Acesso controlado</span>
-            <span><Check size={15} /> Histórico completo</span>
-            <span><Check size={15} /> Responsivo e instalável</span>
-          </div>
-        </div>
-
-        <div className="landing-product-stage" aria-label="Prévia da tela Agenda do Assego Studio">
-          <div className="landing-stage-glow" />
-          <div className="landing-app-preview">
-            <div className="landing-preview-marquee">SISTEMA EM DESENVOLVIMENTO • NOVIDADES EM BREVE • ASSEGO STUDIO</div>
-            <div className="landing-preview-topbar">
-              <div className="landing-preview-brand">
-                <span><img src="/logo.png" alt="" /></span>
-                <div><small>ASSEGO PM &amp; BM</small><strong>Assego Studio</strong></div>
-              </div>
-              <div className="landing-preview-session"><Bell size={13} /><b>LR</b></div>
+      <div className="lp-shell" id="topo">
+        <section className="lp-hero">
+          <div className="lp-hero-copy">
+            <span className="lp-pill"><i aria-hidden="true" /> Painel oficial do estúdio</span>
+            <h1>O estúdio da ASSEGO,<br /><em>sob controle.</em></h1>
+            <p className="sub">
+              Agende gravações, controle equipamentos e conduza a rotina do estúdio de podcast da ASSEGO PM &amp; BM com clareza, segurança e registro de tudo.
+            </p>
+            <div className="lp-actions">
+              <button type="button" className="lp-cta" onClick={onLogin}>
+                Acessar plataforma <ArrowRight size={18} aria-hidden="true" />
+              </button>
+              <a className="lp-ghost" href="#recursos">Conhecer recursos</a>
             </div>
-            <div className="landing-preview-content">
-              <section className="landing-preview-hero">
-                <div>
-                  <small>PAINEL OPERACIONAL</small>
-                  <h3>O Estúdio da ASSEGO em uma única visão</h3>
-                  <p>Reservas, gravações, conferências e equipamentos.</p>
-                </div>
-                <div className="landing-preview-hero-action"><span><CalendarDays size={13} /> Solicitar agendamento</span><small><Activity size={10} /> Sistema operacional</small></div>
-              </section>
-              <div className="landing-preview-grid">
-                <article className="landing-preview-card">
-                  <div className="landing-preview-card-head"><span><Clock3 size={15} /></span><b className="online">Agenda</b></div>
-                  <div className="landing-preview-card-body"><small>PRÓXIMA GRAVAÇÃO</small><strong>Agenda disponível</strong><p>Nenhuma gravação aprovada.</p></div>
-                  <em>Consultar horários <ArrowRight size={12} /></em>
-                </article>
-                <article className="landing-preview-card">
-                  <div className="landing-preview-card-head"><span><ShieldCheck size={15} /></span><b>Operação</b></div>
-                  <div className="landing-preview-card-body"><strong>Estúdio pronto</strong><p>24 de 24 itens no estúdio</p><i><span /></i></div>
-                  <div className="landing-preview-stats"><span><b>24</b> conferidos</span><span><b>0</b> pendências</span></div>
-                </article>
-                <article className="landing-preview-card landing-preview-actions">
-                  <div className="landing-preview-card-head"><div><small>ACESSO RÁPIDO</small><strong>O que você quer fazer?</strong></div></div>
-                  <div className="landing-preview-actions-grid"><span><CalendarDays size={14} /> Reservar</span><span><Radio size={14} /> Ao Vivo</span><span><ClipboardCheck size={14} /> Conferir</span><span><PackageCheck size={14} /> Equipamentos</span></div>
-                </article>
-              </div>
+            <div className="lp-trust" aria-label="Diferenciais">
+              <span><Check size={15} aria-hidden="true" /> Acesso controlado</span>
+              <span><Check size={15} aria-hidden="true" /> Histórico completo</span>
+              <span><Smartphone size={15} aria-hidden="true" /> Instalável no iPhone</span>
             </div>
-            <nav className="landing-preview-tabs" aria-label="Abas do app">
-              <span className="active"><CalendarDays size={13} /> Agenda</span><span><Video size={13} /> Ao Vivo</span><span><ClipboardCheck size={13} /> Conferência</span><span><PackageCheck size={13} /> Equipamento</span>
-            </nav>
           </div>
-        </div>
-      </section>
 
-      <section className="landing-section" id="recursos">
-        <div className="landing-section-heading">
-          <div><span className="landing-kicker">GESTÃO CENTRALIZADA</span><h2>Tudo o que o estúdio precisa.<br />Nada além do necessário.</h2></div>
-          <p>Menos planilhas, mensagens dispersas e dúvidas. Mais autonomia para a equipe e visibilidade para a gestão.</p>
-        </div>
-        <div className="landing-feature-grid">
-          {features.map(({ icon: Icon, label, title, description }, index) => (
-            <article className="landing-feature-card" key={title}>
-              <div className="landing-feature-top"><span><Icon size={22} /></span><small>0{index + 1}</small></div>
-              <em>{label}</em><h3>{title}</h3><p>{description}</p>
-              <button type="button" onClick={onLogin}>Explorar recurso <ArrowRight size={16} /></button>
-            </article>
-          ))}
-        </div>
-      </section>
+          <div className="lp-stage" aria-hidden="true">
+            <span className="rec"><i /> REC · ASSEGO STUDIO</span>
+            <div className="mic"><MicMark /></div>
+            <div className="lp-eq"><span /><span /><span /><span /><span /><span /><span /></div>
+            <p className="cap">Do agendamento à entrega, em um só lugar.</p>
+          </div>
+        </section>
+      </div>
 
-      <section className="landing-process" id="processo">
-        <div className="landing-process-copy">
-          <span className="landing-kicker">FLUXO SIMPLES</span>
+      <div className="lp-shell">
+        <section className="lp-section" id="recursos">
+          <span className="lp-kicker">Gestão centralizada</span>
+          <h2>Tudo o que o estúdio precisa.<br />Nada além do necessário.</h2>
+          <p className="lead">Menos planilhas e mensagens soltas. Mais autonomia para a equipe e visibilidade para a diretoria.</p>
+          <div className="lp-cards">
+            {FEATURES.map(({ icon: Icon, title, description }) => (
+              <article className="lp-card" key={title}>
+                <span className="ic"><Icon size={22} aria-hidden="true" /></span>
+                <h3>{title}</h3>
+                <p>{description}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="lp-section" id="processo">
+          <span className="lp-kicker">Fluxo simples</span>
           <h2>Da solicitação à conclusão em quatro passos.</h2>
-          <p>Cada etapa fica registrada para que todos saibam o que acontece agora e o que vem depois.</p>
-          <button type="button" className="landing-text-btn" onClick={onLogin}>Começar agora <ArrowRight size={17} /></button>
-        </div>
-        <ol className="landing-process-list">
-          <li><span>01</span><div><strong>Solicite</strong><p>Escolha data, horário e recursos necessários.</p></div><CheckCircle2 size={20} /></li>
-          <li><span>02</span><div><strong>Confirme</strong><p>Acompanhe a análise e receba a confirmação.</p></div><CheckCircle2 size={20} /></li>
-          <li><span>03</span><div><strong>Utilize</strong><p>Acesse o estúdio com tudo previamente preparado.</p></div><CheckCircle2 size={20} /></li>
-          <li><span>04</span><div><strong>Finalize</strong><p>Registre termos, devoluções e observações.</p></div><CheckCircle2 size={20} /></li>
-        </ol>
-      </section>
+          <div className="lp-steps">
+            {STEPS.map(({ n, title, text }) => (
+              <div className="lp-step" key={n}>
+                <b>{n}</b>
+                <strong>{title}</strong>
+                <p>{text}</p>
+              </div>
+            ))}
+          </div>
+        </section>
 
-      <section className="landing-security" id="seguranca">
-        <div className="landing-security-icon"><ShieldCheck size={36} /></div>
-        <div><span className="landing-kicker">SEGURANÇA POR PADRÃO</span><h2>Informação certa, para a pessoa certa.</h2><p>Autenticação individual, níveis de acesso e rastreabilidade das operações protegem os processos e o patrimônio da associação.</p></div>
-        <div className="landing-security-points"><span><Check size={16} /> Perfis e permissões</span><span><Check size={16} /> Termos digitais</span><span><Check size={16} /> Registros auditáveis</span></div>
-      </section>
+        <section className="lp-section" id="estudio" style={{ paddingBottom: 0 }}>
+          <div className="lp-hours">
+            <span className="ic"><Clock3 size={28} aria-hidden="true" /></span>
+            <div>
+              <h3>Funcionamento do estúdio</h3>
+              <p>
+                <b>Seg. a sex.</b> das 9h às 17h · <b>Sáb.</b> das 9h às 12h. Horário após as 17h somente com autorização.
+                Equipamentos apenas com registro de retirada e devolução.
+              </p>
+            </div>
+          </div>
+        </section>
 
-      <section className="landing-final-cta">
-        <div><span className="landing-kicker">ASSEGO STUDIO</span><h2>Seu próximo agendamento começa aqui.</h2><p>Acesse a plataforma e organize toda a operação do estúdio em um só lugar.</p></div>
-        <button type="button" className="landing-primary-btn" onClick={onLogin}>Entrar no sistema <ArrowRight size={19} /></button>
-      </section>
+        <section className="lp-section">
+          <div className="lp-final">
+            <div>
+              <span className="lp-kicker">Assego Studio</span>
+              <h2>Seu próximo agendamento começa aqui.</h2>
+              <p>Acesse a plataforma e organize toda a operação do estúdio em um só lugar.</p>
+            </div>
+            <button type="button" className="lp-cta" onClick={onLogin}>
+              Entrar no sistema <ArrowRight size={18} aria-hidden="true" />
+            </button>
+          </div>
+        </section>
 
-      <footer className="landing-footer">
-        <div className="landing-brand"><span className="landing-logo"><img src="/logo.png" alt="" /></span><span className="landing-brand-copy"><strong>ASSEGO Studio</strong><small>PM &amp; BM</small></span></div>
-        <p>Plataforma interna de gestão do estúdio.</p><small>Desenvolvido por Lucas Rickson</small>
-      </footer>
+        <footer className="lp-footer">
+          <a className="lp-brand" href="#topo">
+            <span className="logo"><img src="/logo.png" alt="ASSEGO PM & BM" /></span>
+            <span><b>ASSEGO Studio</b><span>PM &amp; BM</span></span>
+          </a>
+          <span>Plataforma interna de gestão do estúdio · Desenvolvido por Lucas Rickson</span>
+        </footer>
+      </div>
     </main>
   );
 }
