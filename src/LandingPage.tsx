@@ -1,11 +1,15 @@
 import {
   ArrowRight,
+  Bell,
   CalendarDays,
   Check,
+  ClipboardCheck,
   Clock3,
   PackageCheck,
+  Radio,
   ShieldCheck,
   Smartphone,
+  Video,
 } from 'lucide-react';
 import './landing.css';
 
@@ -37,29 +41,6 @@ const STEPS = [
   { n: '03', title: 'Grave', text: 'Chegue com tudo previamente preparado pela equipe do estúdio.' },
   { n: '04', title: 'Finalize', text: 'Termo aceito, materiais e devoluções registrados ao final.' },
 ];
-
-// Microfone + faixa de áudio (mesmo símbolo do ícone do app).
-function MicMark() {
-  return (
-    <svg viewBox="0 0 64 64" role="img" aria-label="Assego Studio">
-      <defs>
-        <linearGradient id="lp-metal" gradientUnits="userSpaceOnUse" x1="32" y1="6" x2="32" y2="36">
-          <stop offset="0" stopColor="#BFD9F7" /><stop offset="0.2" stopColor="#8FBAF0" />
-          <stop offset="0.6" stopColor="#4E8BD8" /><stop offset="1" stopColor="#255C9E" />
-        </linearGradient>
-        <linearGradient id="lp-deep" gradientUnits="userSpaceOnUse" x1="32" y1="30" x2="32" y2="49">
-          <stop offset="0" stopColor="#5E93D8" /><stop offset="1" stopColor="#1E4272" />
-        </linearGradient>
-      </defs>
-      <rect x="24" y="6" width="16" height="30" rx="8" fill="url(#lp-metal)" stroke="#CFE3FF" strokeOpacity="0.35" />
-      <g stroke="#0C1D34" strokeOpacity="0.5" strokeWidth="1.4" strokeLinecap="round">
-        <line x1="27.5" y1="14" x2="36.5" y2="14" /><line x1="27.5" y1="19" x2="36.5" y2="19" /><line x1="27.5" y1="24" x2="36.5" y2="24" />
-      </g>
-      <path d="M20 30 a12 12 0 0 0 24 0" fill="none" stroke="url(#lp-deep)" strokeWidth="3.4" strokeLinecap="round" />
-      <line x1="32" y1="42" x2="32" y2="49" stroke="url(#lp-deep)" strokeWidth="3.4" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 export function LandingPage({ onLogin }: LandingPageProps) {
   return (
@@ -102,11 +83,46 @@ export function LandingPage({ onLogin }: LandingPageProps) {
             </div>
           </div>
 
-          <div className="lp-stage" aria-hidden="true">
-            <span className="rec"><i /> REC · ASSEGO STUDIO</span>
-            <div className="mic"><MicMark /></div>
-            <div className="lp-eq"><span /><span /><span /><span /><span /><span /><span /></div>
-            <p className="cap">Do agendamento à entrega, em um só lugar.</p>
+          <div className="lp-preview" aria-hidden="true">
+            <div className="lp-pv-top">
+              <div className="lp-pv-brand">
+                <span className="chip"><img src="/logo.png" alt="" /></span>
+                <div><small>ASSEGO PM &amp; BM</small><strong>Assego Studio</strong></div>
+              </div>
+              <div className="lp-pv-session"><Bell size={13} /><b>LR</b></div>
+            </div>
+            <div className="lp-pv-body">
+              <div className="lp-pv-hero">
+                <div><span className="k">Painel operacional</span><h4>O estúdio em uma visão</h4></div>
+                <span className="lp-pv-live"><i /> Sistema no ar</span>
+              </div>
+              <div className="lp-pv-cards">
+                <div className="lp-pv-card">
+                  <div className="ch"><span className="ic"><CalendarDays size={13} /></span><b>Agenda</b></div>
+                  <em>Próxima gravação</em>
+                  <strong>Agenda livre</strong>
+                  <p>Nenhuma aprovada.</p>
+                </div>
+                <div className="lp-pv-card">
+                  <div className="ch"><span className="ic"><ShieldCheck size={13} /></span><b>Operação</b></div>
+                  <strong>Estúdio pronto</strong>
+                  <p>24 de 24 itens</p>
+                  <div className="lp-pv-meter"><i /></div>
+                </div>
+              </div>
+              <div className="lp-pv-quick">
+                <span><CalendarDays size={14} />Reservar</span>
+                <span><Radio size={14} />Ao Vivo</span>
+                <span><ClipboardCheck size={14} />Conferir</span>
+                <span><PackageCheck size={14} />Equipamentos</span>
+              </div>
+            </div>
+            <div className="lp-pv-tabs">
+              <span className="active"><CalendarDays size={13} />Agenda</span>
+              <span><Video size={13} />Ao Vivo</span>
+              <span><ClipboardCheck size={13} />Conferência</span>
+              <span><PackageCheck size={13} />Equipamento</span>
+            </div>
           </div>
         </section>
       </div>
