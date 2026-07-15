@@ -9,11 +9,23 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 
-const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+const ALLOWED_ORIGINS = new Set([
+  'https://assegostudio.vercel.app',
+  'https://controle-estudio-assego-privado.vercel.app',
+  'http://127.0.0.1:5173',
+  'tauri://localhost',
+  'http://tauri.localhost',
+]);
+
+function corsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('origin') ?? '';
+  return {
+    ...(ALLOWED_ORIGINS.has(origin) ? { 'Access-Control-Allow-Origin': origin } : {}),
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin',
+  };
+}
 
 const ADMIN_RECIPIENTS = [
   'ricksonlucasgomes@gmail.com',
@@ -53,6 +65,14 @@ async function sendEmail(subject: string, content: string) {
 }
 
 Deno.serve(async (req) => {
+  const cors = corsHeaders(req);
+  const origin = req.headers.get('origin') ?? '';
+  if (origin && !ALLOWED_ORIGINS.has(origin)) {
+    return new Response(JSON.stringify({ error: 'Origem não autorizada.' }), {
+      status: 403,
+      headers: { ...cors, 'Content-Type': 'application/json' },
+    });
+  }
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return new Response('Método não permitido', { status: 405, headers: cors });
 

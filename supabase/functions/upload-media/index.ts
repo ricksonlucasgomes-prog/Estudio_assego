@@ -14,11 +14,34 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+const ALLOWED_ORIGINS = new Set([
+  'https://assegostudio.vercel.app',
+  'https://controle-estudio-assego-privado.vercel.app',
+  'http://127.0.0.1:5173',
+  'tauri://localhost',
+  'http://tauri.localhost',
+]);
+
+function corsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('origin') ?? '';
+  return {
+    ...(ALLOWED_ORIGINS.has(origin) ? { 'Access-Control-Allow-Origin': origin } : {}),
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin',
+  };
+}
+
+// Escapa valores antes de interpola-los no HTML do e-mail (evita injecao de
+// HTML/markup a partir de dados enviados pelo cliente autenticado).
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; mime: string } {
   const [head, b64] = dataUrl.split(',');
@@ -83,6 +106,14 @@ async function sendEmail(subject: string, html: string, bytes: Uint8Array, filen
 }
 
 Deno.serve(async (req) => {
+  const cors = corsHeaders(req);
+  const origin = req.headers.get('origin') ?? '';
+  if (origin && !ALLOWED_ORIGINS.has(origin)) {
+    return new Response(JSON.stringify({ error: 'Origem não autorizada.' }), {
+      status: 403,
+      headers: { ...cors, 'Content-Type': 'application/json' },
+    });
+  }
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: cors });
 
@@ -95,23 +126,31 @@ Deno.serve(async (req) => {
     const { data: userData } = await sb.auth.getUser();
     if (!userData?.user) return new Response(JSON.stringify({ error: 'não autenticado' }), { status: 401, headers: cors });
 
-    const { photo, title, equipmentName, user, email } = await req.json();
-    if (!photo) return new Response(JSON.stringify({ error: 'foto ausente' }), { status: 400, headers: cors });
+    // A identidade de quem enviou vem SEMPRE do token autenticado, nunca do
+    // corpo da requisição (que é falsificável pelo cliente).
+    const authUser = userData.user;
+    const senderEmail = authUser.email ?? '-';
+    const senderName = String(authUser.user_metadata?.full_name ?? '').trim()
+      || (authUser.email ? authUser.email.split('@')[0] : 'Usuário');
+
+    const { photo, title, equipmentName } = await req.json();
+    if (!photo || typeof photo !== 'string') return new Response(JSON.stringify({ error: 'foto ausente' }), { status: 400, headers: cors });
 
     const { bytes, mime } = dataUrlToBytes(photo);
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `${(equipmentName ?? 'equipamento')} - ${stamp}.jpg`.replace(/[\\/]/g, '-');
+    const safeEquipmentName = String(equipmentName ?? 'equipamento').slice(0, 160);
+    const filename = `${safeEquipmentName} - ${stamp}.jpg`.replace(/[\\/]/g, '-');
 
     const token = await googleAccessToken();
     const drive = await uploadToDrive(token, filename, bytes, mime);
 
     const html = `
       <h2>Nova foto de equipamento</h2>
-      <p><b>Equipamento:</b> ${equipmentName ?? '-'}</p>
-      <p><b>Titulo:</b> ${title ?? '-'}</p>
-      <p><b>Enviado por:</b> ${user ?? '-'} (${email ?? '-'})</p>
-      <p><b>No Drive:</b> <a href="${drive.webViewLink}">${drive.webViewLink}</a></p>`;
-    await sendEmail(`Foto de equipamento: ${equipmentName ?? ''}`, html, bytes, filename);
+      <p><b>Equipamento:</b> ${escapeHtml(equipmentName ?? '-')}</p>
+      <p><b>Titulo:</b> ${escapeHtml(title ?? '-')}</p>
+      <p><b>Enviado por:</b> ${escapeHtml(senderName)} (${escapeHtml(senderEmail)})</p>
+      <p><b>No Drive:</b> <a href="${escapeHtml(drive.webViewLink)}">${escapeHtml(drive.webViewLink)}</a></p>`;
+    await sendEmail(`Foto de equipamento: ${safeEquipmentName}`, html, bytes, filename);
 
     return new Response(JSON.stringify({ ok: true, driveFileId: drive.id, webViewLink: drive.webViewLink }), {
       headers: { ...cors, 'Content-Type': 'application/json' },

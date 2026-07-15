@@ -16,10 +16,25 @@ import { serve } from 'https://deno.land/std@0.192.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10'
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+// Função de cron (servidor-para-servidor com x-cron-secret): normalmente não
+// recebe Origin de navegador. Mantemos uma allowlist por consistência; quando
+// não há Origin correspondente, simplesmente não emitimos Access-Control-Allow-Origin.
+const ALLOWED_ORIGINS = new Set([
+  'https://assegostudio.vercel.app',
+  'https://controle-estudio-assego-privado.vercel.app',
+  'http://127.0.0.1:5173',
+  'tauri://localhost',
+  'http://tauri.localhost',
+])
+
+function buildCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('origin') ?? ''
+  return {
+    ...(ALLOWED_ORIGINS.has(origin) ? { 'Access-Control-Allow-Origin': origin } : {}),
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin',
+  }
 }
 
 const LUCAS_EMAIL = 'ricksonlucasgomes@gmail.com'
@@ -48,6 +63,7 @@ async function sendOverdueEmail(to: string[], subject: string, content: string) 
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req)
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Método não permitido.' }), {

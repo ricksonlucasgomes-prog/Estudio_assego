@@ -1,9 +1,21 @@
 import { serve } from "https://deno.land/std@0.192.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.47.10"
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const ALLOWED_ORIGINS = new Set([
+  'https://assegostudio.vercel.app',
+  'https://controle-estudio-assego-privado.vercel.app',
+  'http://127.0.0.1:5173',
+  'tauri://localhost',
+  'http://tauri.localhost',
+])
+
+function buildCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('origin') ?? ''
+  return {
+    ...(ALLOWED_ORIGINS.has(origin) ? { 'Access-Control-Allow-Origin': origin } : {}),
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Vary': 'Origin',
+  }
 }
 
 // Horário de funcionamento do estúdio (seg-sex 9-17, exceto 12h; sáb 9-12).
@@ -69,6 +81,14 @@ function slotIsBusy(dateStr: string, time: string, busy: BusyInterval[]): boolea
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req)
+  const origin = req.headers.get('origin') ?? ''
+  if (origin && !ALLOWED_ORIGINS.has(origin)) {
+    return new Response(JSON.stringify({ error: 'Origem não autorizada.' }), {
+      status: 403,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
