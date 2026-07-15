@@ -2725,7 +2725,7 @@ export function App() {
                 </span>
                 <div>
                   <span className="legal-notice-box__eyebrow">Solicitação institucional</span>
-                  <h4>Coleta de dados solicitada pela Presidência da ASSEGO</h4>
+                  <h4>Dados necessários para o agendamento</h4>
                 </div>
               </div>
               <p className="legal-notice-box__summary">
