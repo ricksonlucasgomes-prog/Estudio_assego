@@ -315,7 +315,7 @@ async function appendBookingToSheet(input: {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 5000)
   try {
-    await fetch(webhookUrl, {
+    const res = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -326,6 +326,13 @@ async function appendBookingToSheet(input: {
       }),
       signal: controller.signal,
     })
+    // O Apps Script responde 200 mesmo quando RECUSA (ex.: secret errado).
+    // Por isso conferimos o corpo: se vier ok:false/unauthorized, lança erro
+    // para que a falha apareca no log (em vez de sumir silenciosamente).
+    const bodyText = await res.text().catch(() => '')
+    if (!res.ok || /"ok"\s*:\s*false/i.test(bodyText) || /unauthorized/i.test(bodyText)) {
+      throw new Error(`Sheets recusou (HTTP ${res.status}): ${bodyText.slice(0, 200)}`)
+    }
   } finally {
     clearTimeout(timeout)
   }
