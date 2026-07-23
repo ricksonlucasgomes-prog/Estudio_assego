@@ -364,11 +364,15 @@ function friendlyAuthError(message: string) {
   const msg = message.toLowerCase();
   if (msg.includes('invalid login')) return 'E-mail ou senha incorretos.';
   if (msg.includes('already registered') || msg.includes('already been registered')) return 'Esse e-mail já tem cadastro. Faça login.';
-  if (msg.includes('password should be at least')) return 'A senha precisa de pelo menos 6 caracteres.';
+  if (msg.includes('password should be at least')) {
+    const n = message.match(/at least (\d+)/i)?.[1];
+    return n ? `A senha precisa de pelo menos ${n} caracteres.` : 'A senha é muito curta.';
+  }
   if (msg.includes('unable to validate email') || msg.includes('invalid email')) return 'E-mail inválido.';
   if (msg.includes('email not confirmed')) return 'Confirme seu e-mail pelo link que enviamos antes de entrar.';
   if (msg.includes('email address not authorized')) return 'O envio de confirmação ainda não está liberado para este e-mail. Avise o administrador.';
   if (msg.includes('rate limit') || msg.includes('email rate limit')) return 'Limite de e-mails atingido. Aguarde alguns minutos e tente novamente.';
+  if (msg.includes('password should contain')) return 'A senha não atende aos requisitos. Use uma combinação de letras, números e símbolos.';
   return message;
 }
 
