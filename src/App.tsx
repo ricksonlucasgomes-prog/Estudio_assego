@@ -374,6 +374,10 @@ function friendlyAuthError(message: string) {
   if (msg.includes('rate limit') || msg.includes('email rate limit')) return 'Limite de e-mails atingido. Aguarde alguns minutos e tente novamente.';
   if (msg.includes('password should contain')) return 'A senha não atende aos requisitos. Use uma combinação de letras, números e símbolos.';
   if (msg.includes('error sending') || msg.includes('confirmation email')) return 'Não foi possível enviar o e-mail de confirmação agora. Aguarde alguns minutos e tente novamente. Se persistir, avise o administrador.';
+  if (msg.includes('failed to fetch') || msg.includes('networkerror') || msg.includes('load failed')) return 'Sem conexão com o servidor. Verifique sua internet e tente novamente.';
+  // Erros 5xx chegam da lib do Supabase sem texto (message vira "{}").
+  const plain = message.trim();
+  if (!plain || /^[{}[\]"',.:;\s]*$/.test(plain)) return 'O servidor de login falhou ao processar o pedido. Tente novamente em instantes. Se persistir, avise o administrador.';
   return message;
 }
 
