@@ -373,6 +373,7 @@ function friendlyAuthError(message: string) {
   if (msg.includes('email address not authorized')) return 'O envio de confirmação ainda não está liberado para este e-mail. Avise o administrador.';
   if (msg.includes('rate limit') || msg.includes('email rate limit')) return 'Limite de e-mails atingido. Aguarde alguns minutos e tente novamente.';
   if (msg.includes('password should contain')) return 'A senha não atende aos requisitos. Use uma combinação de letras, números e símbolos.';
+  if (msg.includes('error sending') || msg.includes('confirmation email')) return 'Não foi possível enviar o e-mail de confirmação agora. Aguarde alguns minutos e tente novamente. Se persistir, avise o administrador.';
   return message;
 }
 
